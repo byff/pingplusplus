@@ -212,3 +212,14 @@ void ResultTableModel::sortByColumn(int column, SortOrder order)
 
     emit sortChanged(column, order);
 }
+
+bool ResultTableModel::removeRows(int row, int count, const QModelIndex& parent)
+{
+    if (parent.isValid()) return false;
+    if (row < 0 || row + count > rowCount()) return false;
+
+    beginRemoveRows(parent, row, row + count - 1);
+    m_results.erase(m_results.begin() + row, m_results.begin() + row + count);
+    endRemoveRows();
+    return true;
+}

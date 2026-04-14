@@ -22,6 +22,10 @@ public:
     void sortByColumn(int column, SortOrder order);
     int sortColumn() const { return m_sortColumn; }
     SortOrder sortOrder() const { return m_sortOrder; }
+
+    // Remove rows (used by context menu delete)
+    bool removeRows(int row, int count, const QModelIndex& parent = QModelIndex()) override;
+
 signals:
     void sortChanged(int column, SortOrder order);
 private:

@@ -59,14 +59,14 @@ private slots:
     void onSortChanged(int logicalIndex);
     void onFilterChanged(const QString &text);
     void onRefreshTimer();
-    void onPingResultReady(const QString &host, bool online, int latencyMs, const QString &timestamp);
+    void onEngineStarted();
+    void onEngineStopped();
     void onEngineFinished();
+    void onTargetCountChanged(int count);
+    void onContextMenu(const QPoint &pos);
     void onAbout();
-    void onExportResults();
-    void onImportResults();
     void onToggleTheme();
     void onSettings();
-    void onInsertSampleData();
 
 private:
     void setupUi();
@@ -82,62 +82,65 @@ private:
     bool validateInput(const QString &input) const;
     void showError(const QString &title, const QString &message);
     void showInfo(const QString &title, const QString &message);
+    void dragEnterEvent(QDragEnterEvent *event) override;
+    void dropEvent(QDropEvent *event) override;
 
     // Pimpl pattern for widget pointers
     struct PrivateUi
     {
         // Toolbar
-        QToolBar *toolbar;
-        QPushButton *btnStart;
-        QPushButton *btnStop;
-        QPushButton *btnClear;
-        QPushButton *btnImport;
-        QPushButton *btnExport;
-        QPushButton *btnInsertResults;
-        QPushButton *btnSettings;
-        QPushButton *btnAbout;
-        QPushButton *btnToggleTheme;
+        QToolBar *toolbar = nullptr;
+        QPushButton *btnStart = nullptr;
+        QPushButton *btnStop = nullptr;
+        QPushButton *btnClear = nullptr;
+        QPushButton *btnImport = nullptr;
+        QPushButton *btnExport = nullptr;
+        QPushButton *btnInsertResults = nullptr;
+        QPushButton *btnSettings = nullptr;
+        QPushButton *btnAbout = nullptr;
+        QPushButton *btnToggleTheme = nullptr;
 
         // Input area
-        QWidget *inputWidget;
-        QTextEdit *textInput;
-        QLineEdit *editTimeout;
-        QDoubleSpinBox *spinInterval;
-        QSpinBox *spinPacketSize;
-        QSpinBox *spinConcurrent;
-        QLineEdit *editFilter;
+        QWidget *inputWidget = nullptr;
+        QTextEdit *textInput = nullptr;
+        QLineEdit *editTimeout = nullptr;
+        QDoubleSpinBox *spinInterval = nullptr;
+        QSpinBox *spinPacketSize = nullptr;
+        QSpinBox *spinConcurrent = nullptr;
+        QCheckBox *checkContinuous = nullptr;
+        QLineEdit *editFilter = nullptr;
 
         // Table view
-        QTableView *tableView;
-        QHeaderView *tableHeader;
+        QTableView *tableView = nullptr;
+        QHeaderView *tableHeader = nullptr;
 
         // Status bar
-        QStatusBar *statusBar;
-        QLabel *labelOnline;
-        QLabel *labelOffline;
-        QLabel *labelElapsed;
-        QLabel *labelProgress;
-        QProgressBar *progressBar;
-        QLabel *labelStatus;
+        QStatusBar *statusBar = nullptr;
+        QLabel *labelOnline = nullptr;
+        QLabel *labelOffline = nullptr;
+        QLabel *labelElapsed = nullptr;
+        QLabel *labelProgress = nullptr;
+        QProgressBar *progressBar = nullptr;
+        QLabel *labelStatus = nullptr;
     };
 
     PrivateUi ui;
 
     // Core components
-    PingEngine *m_pingEngine;
-    ResultTableModel *m_tableModel;
-    QSortFilterProxyModel *m_proxyModel;
+    PingEngine *m_pingEngine = nullptr;
+    ResultTableModel *m_tableModel = nullptr;
+    QSortFilterProxyModel *m_proxyModel = nullptr;
 
     // Timers
-    QTimer *m_refreshTimer;
-    QElapsedTimer *m_elapsedTimer;
+    QTimer *m_refreshTimer = nullptr;
+    QElapsedTimer *m_elapsedTimer = nullptr;
 
     // State
-    Theme m_currentTheme;
-    bool m_isRunning;
-    int m_onlineCount;
-    int m_offlineCount;
-    int m_totalTargets;
+    Theme m_currentTheme = Theme::Light;
+    bool m_isRunning = false;
+    int m_onlineCount = 0;
+    int m_offlineCount = 0;
+    int m_totalTargets = 0;
 
     // Configuration defaults
     static constexpr int DEFAULT_TIMEOUT_MS = 3000;

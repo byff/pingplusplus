@@ -1,5 +1,5 @@
 cmake_minimum_required(VERSION 3.16)
-project(pingtestpp LANGUAGES CXX)
+project(pingplusplus LANGUAGES CXX)
 
 set(CMAKE_CXX_STANDARD 17)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
@@ -9,7 +9,10 @@ set(CMAKE_RUNTIME_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}/bin)
 
 # Qt 6.5+
 set(QT_MIN_VERSION 6.5)
-find_package(Qt6 REQUIRED COMPONENTS Core Widgets Network Gui Xml)
+find_package(Qt6 REQUIRED COMPONENTS Core Widgets Network Gui)
+
+# Qt XML for xlsx parsing (QuaZip uses it internally)
+find_package(Qt6 QUIET COMPONENTS Xml)
 
 # XlsxWriter - use FetchContent if not found
 find_package(XlsxWriter QUIET)
@@ -61,11 +64,10 @@ set(HEADERS
     src/config/configmanager.h
 )
 
-# Windows: GUI subsystem, no console
+# Windows: GUI subsystem (no console)
 if(WIN32)
     add_executable(${PROJECT_NAME} WIN32 ${SOURCES} ${HEADERS})
     set_target_properties(${PROJECT_NAME} PROPERTIES WIN32_EXECUTABLE TRUE)
-    set(CMAKE_EXE_LINKER_FLAGS "/SUBSYSTEM:WINDOWS /ENTRY:mainCRTStartup")
 else()
     add_executable(${PROJECT_NAME} ${SOURCES} ${HEADERS})
 endif()
@@ -76,22 +78,19 @@ target_link_libraries(${PROJECT_NAME} PRIVATE
     Qt6::Widgets
     Qt6::Network
     Qt6::Gui
-    Qt6::Xml
 )
 
 # Link XlsxWriter
-if(XlsxWriter_FOUND)
-    target_link_libraries(${PROJECT_NAME} PRIVATE XlsxWriter)
-else()
+if(TARGET xlsxwriter)
     target_link_libraries(${PROJECT_NAME} PRIVATE xlsxwriter)
 endif()
 
 # Link QuaZip
-if(QuaZip_FOUND)
+if(TARGET QuaZip::QuaZip)
     target_link_libraries(${PROJECT_NAME} PRIVATE QuaZip::QuaZip)
 endif()
 
-# Windows-specific libs
+# Windows-specific libs (raw ICMP)
 if(WIN32)
     target_link_libraries(${PROJECT_NAME} PRIVATE ws2_32 iphlpapi)
 endif()

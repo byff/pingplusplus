@@ -25,6 +25,6 @@ signals:
 
 private:
     QMap<QString, QList<QHostAddress>> m_cache;
-    QMutex m_mutex;
+    QMutex m_mutex;  // Note: use QMutex for non-recursive, or QRecursiveMutex for reentrant
     int m_maxCacheSize = 10000;
 };

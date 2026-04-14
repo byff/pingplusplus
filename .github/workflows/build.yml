@@ -1,4 +1,4 @@
-name: pingtestpp CI Build
+name: ping++ CI Build
 
 on:
   push:
@@ -8,6 +8,9 @@ on:
       - 'v*'
   workflow_dispatch:
 
+env:
+  VCPKG_BINARY_CACHE: /tmp/vcpkg-cache
+
 jobs:
   windows:
     runs-on: windows-latest
@@ -15,20 +18,27 @@ jobs:
       - name: Checkout code
         uses: actions/checkout@v4
 
+      - name: Cache vcpkg
+        uses: actions/cache@v4
+        with:
+          path: C:/vcpkg
+          key: vcpkg-win-${{ hashFiles('vcpkg.json') }}
+          restore-keys: vcpkg-win-
+
       - name: Install vcpkg
+        if: steps.cache.outputs.cache-hit != 'true'
         run: |
-          git clone https://github.com/microsoft/vcpkg.git "$env:VCPKG_ROOT"
-          cd $env:VCPKG_ROOT
-          ./bootstrap-vcpkg.bat
+          git clone https://github.com/microsoft/vcpkg.git C:/vcpkg
+          C:/vcpkg/bootstrap-vcpkg.bat
 
       - name: Install dependencies via vcpkg
         run: |
-          vcpkg install qt6:x64-windows xlsxwriter:x64-windows
+          vcpkg install qt6:x64-windows xlsxwriter quazip:x64-windows --clean-after-build
 
       - name: CMake configure
         run: |
-          cmake -B build -DCMAKE_BUILD_TYPE=Release `
-            -DCMAKE_TOOLCHAIN_FILE="$env:VCPKG_ROOT/scripts/buildsystems/vcpkg.cmake"
+          cmake -B build -DCMAKE_BUILD_TYPE=Release \
+            -DCMAKE_TOOLCHAIN_FILE="C:/vcpkg/scripts/buildsystems/vcpkg.cmake"
 
       - name: Build
         run: cmake --build build --config Release
@@ -36,50 +46,55 @@ jobs:
       - name: Upload Windows artifact
         uses: actions/upload-artifact@v4
         with:
-          name: pingtestpp-windows-x64
-          path: build/bin/pingtestpp.exe
+          name: pingplusplus-windows-x64
+          path: build/bin/pingplusplus.exe
 
   linux-x64:
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
 
-      - name: Install Qt6
+      - name: Install Qt6 and dependencies
         run: |
           sudo apt-get update
-          sudo apt-get install -y qt6-base-dev qt6-tools-dev libxlsxwriter-dev
+          sudo apt-get install -y --no-install-recommends \
+            qt6-base-dev \
+            qt6-base-private-dev \
+            libxlsxwriter-dev \
+            libquazip5-dev \
+            libqt6xml6
 
       - name: CMake configure
-        run: cmake -B build -DCMAKE_BUILD_TYPE=Release
+        run: cmake -B build -DCMAKE_BUILD_TYPE=Release -DQUAZIP_INCLUDE_DIR=/usr/include/quazip6 -DQUAZIP_LIBRARY=/usr/lib/x86_64-linux-gnu/libquazip5.so
 
       - name: Build
         run: cmake --build build --config Release
 
       - name: Package as deb
         run: |
-          mkdir -p debdir/usr/bin debdir/usr/share/pingtestpp debdir/DEBIAN
-          cp build/bin/pingtestpp debdir/usr/bin/
+          mkdir -p debdir/usr/bin debdir/DEBIAN
+          cp build/bin/pingplusplus debdir/usr/bin/
           cat > debdir/DEBIAN/control << 'CONTROL'
-Package: pingtestpp
+Package: pingplusplus
 Version: 1.0.0
 Architecture: amd64
-Maintainer: pingtestpp
+Maintainer: pingplusplus
 Description: High-performance batch ping tool
 Section: net
 Priority: optional
-Depends: libc6, libgcc-s1, libstdc++6, libxlsxwriter (>= 1.0.0), libqt6core6 (>= 6.5), libqt6gui6 (>= 6.5), libqt6network6 (>= 6.5), libqt6widgets6 (>= 6.5)
+Depends: libc6, libgcc-s1, libstdc++6, libxlsxwriter (>= 1.0.0), libqt6core6t64 (>= 6.5), libqt6guit6t64 (>= 6.5), libqt6network6t64 (>= 6.5), libqt6widgets6t64 (>= 6.5), libquazip5 (>= 1.0)
 CONTROL
-          dpkg-deb --build debdir pingtestpp-linux-x64.deb
+          dpkg-deb --build debdir pingplusplus-linux-x64.deb
 
       - name: Upload Linux x64 artifact
         uses: actions/upload-artifact@v4
         with:
-          name: pingtestpp-linux-x64.deb
-          path: pingtestpp-linux-x64.deb
+          name: pingplusplus-linux-x64.deb
+          path: pingplusplus-linux-x64.deb
 
   linux-arm64:
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
@@ -87,42 +102,45 @@ CONTROL
       - name: Install cross compile toolchain
         run: |
           sudo apt-get update
-          sudo apt-get install -y g++-aarch64-linux-gnu binutils-aarch64-linux-gnu cmake
+          sudo apt-get install -y --no-install-recommends \
+            g++-aarch64-linux-gnu \
+            binutils-aarch64-linux-gnu \
+            cmake \
+            qt6-base-dev:arm64 \
+            qt6-base-private-dev:arm64 \
+            libxlsxwriter-dev:arm64 \
+            libquazip5-dev:arm64
 
-      - name: Install Qt6 for ARM64
-        run: |
-          sudo dpkg --add-architecture arm64
-          sudo add-apt-repository -y "deb [arch=amd64] http://archive.ubuntu.com/ubuntu/ $(lsb_release -cs) main universe"
-          sudo apt-get update
-          sudo apt-get install -y qt6-base-dev:arm64 qt6-tools-dev:arm64
-
-      - name: CMake configure
+      - name: CMake configure (cross-compile)
         run: |
           cmake -B build -DCMAKE_BUILD_TYPE=Release \
-            -DCMAKE_TOOLCHAIN_FILE=/usr/aarch64-linux-gnu/cmake/Toolchain-aarch64.cmake \
-            -DCMAKE_CXX_COMPILER=aarch64-linux-gnu-g++
+            -DCMAKE_C_COMPILER=aarch64-linux-gnu-gcc \
+            -DCMAKE_CXX_COMPILER=aarch64-linux-gnu-g++ \
+            -DCMAKE_SYSROOT=/usr/aarch64-linux-gnu \
+            -DQUAZIP_INCLUDE_DIR=/usr/include/aarch64-linux-gnu/quazip6 \
+            -DQUAZIP_LIBRARY=/usr/lib/aarch64-linux-gnu/libquazip5.so
 
       - name: Build
         run: cmake --build build --config Release
 
       - name: Package as deb
         run: |
-          mkdir -p debdir/usr/bin debdir/usr/share/pingtestpp debdir/DEBIAN
-          cp build/bin/pingtestpp debdir/usr/bin/
-          cat > debdir/DEBIAN/control << 'CONTROL'
-Package: pingtestpp
+          mkdir -p debdir-arm64/usr/bin debdir-arm64/DEBIAN
+          cp build/bin/pingplusplus debdir-arm64/usr/bin/
+          cat > debdir-arm64/DEBIAN/control << 'CONTROL'
+Package: pingplusplus
 Version: 1.0.0
 Architecture: arm64
-Maintainer: pingtestpp
+Maintainer: pingplusplus
 Description: High-performance batch ping tool
 Section: net
 Priority: optional
-Depends: libc6, libgcc-s1, libstdc++6, libxlsxwriter (>= 1.0.0), libqt6core6t64 (>= 6.5), libqt6guit6t64 (>= 6.5), libqt6network6t64 (>= 6.5), libqt6widgets6t64 (>= 6.5)
+Depends: libc6, libgcc-s1, libstdc++6, libxlsxwriter (>= 1.0.0), libqt6core6t64 (>= 6.5), libqt6guit6t64 (>= 6.5), libqt6network6t64 (>= 6.5), libqt6widgets6t64 (>= 6.5), libquazip5 (>= 1.0)
 CONTROL
-          dpkg-deb --build debdir pingtestpp-linux-arm64.deb
+          dpkg-deb --build debdir-arm64 pingplusplus-linux-arm64.deb
 
       - name: Upload Linux ARM64 artifact
         uses: actions/upload-artifact@v4
         with:
-          name: pingtestpp-linux-arm64.deb
-          path: pingtestpp-linux-arm64.deb
+          name: pingplusplus-linux-arm64.deb
+          path: pingplusplus-linux-arm64.deb
