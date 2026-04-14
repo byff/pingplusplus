@@ -32,12 +32,11 @@ jobs:
           C:/vcpkg/bootstrap-vcpkg.bat
 
       - name: Install dependencies via vcpkg
-        run: |
-          vcpkg install qt6:x64-windows xlsxwriter quazip:x64-windows --clean-after-build
+        run: vcpkg install qt6:x64-windows xlsxwriter quazip:x64-windows --clean-after-build
 
       - name: CMake configure
         run: |
-          cmake -B build -DCMAKE_BUILD_TYPE=Release \
+          cmake -B build -DCMAKE_BUILD_TYPE=Release ^
             -DCMAKE_TOOLCHAIN_FILE="C:/vcpkg/scripts/buildsystems/vcpkg.cmake"
 
       - name: Build
@@ -66,7 +65,9 @@ jobs:
             libqt6xml6
 
       - name: CMake configure
-        run: cmake -B build -DCMAKE_BUILD_TYPE=Release -DQUAZIP_INCLUDE_DIR=/usr/include/quazip6 -DQUAZIP_LIBRARY=/usr/lib/x86_64-linux-gnu/libquazip5.so
+        run: |
+          cmake -B build -DCMAKE_BUILD_TYPE=Release \
+            -DQUAZIP_INCLUDE_DIR=/usr/include/quazip
 
       - name: Build
         run: cmake --build build --config Release
@@ -75,16 +76,7 @@ jobs:
         run: |
           mkdir -p debdir/usr/bin debdir/DEBIAN
           cp build/bin/pingplusplus debdir/usr/bin/
-          cat > debdir/DEBIAN/control << 'CONTROL'
-Package: pingplusplus
-Version: 1.0.0
-Architecture: amd64
-Maintainer: pingplusplus
-Description: High-performance batch ping tool
-Section: net
-Priority: optional
-Depends: libc6, libgcc-s1, libstdc++6, libxlsxwriter (>= 1.0.0), libqt6core6t64 (>= 6.5), libqt6guit6t64 (>= 6.5), libqt6network6t64 (>= 6.5), libqt6widgets6t64 (>= 6.5), libquazip5 (>= 1.0)
-CONTROL
+          printf 'Package: pingplusplus\nVersion: 1.0.0\nArchitecture: amd64\nMaintainer: pingplusplus\nDescription: High-performance batch ping tool\nSection: net\nPriority: optional\nDepends: libc6, libgcc-s1, libstdc++6, libxlsxwriter (>= 1.0.0), libqt6core6t64 (>= 6.5), libqt6guit6t64 (>= 6.5), libqt6network6t64 (>= 6.5), libqt6widgets6t64 (>= 6.5), libquazip5 (>= 1.0)\n' > debdir/DEBIAN/control
           dpkg-deb --build debdir pingplusplus-linux-x64.deb
 
       - name: Upload Linux x64 artifact
@@ -117,8 +109,7 @@ CONTROL
             -DCMAKE_C_COMPILER=aarch64-linux-gnu-gcc \
             -DCMAKE_CXX_COMPILER=aarch64-linux-gnu-g++ \
             -DCMAKE_SYSROOT=/usr/aarch64-linux-gnu \
-            -DQUAZIP_INCLUDE_DIR=/usr/include/aarch64-linux-gnu/quazip6 \
-            -DQUAZIP_LIBRARY=/usr/lib/aarch64-linux-gnu/libquazip5.so
+            -DQUAZIP_INCLUDE_DIR=/usr/include/aarch64-linux-gnu/quazip
 
       - name: Build
         run: cmake --build build --config Release
@@ -127,16 +118,7 @@ CONTROL
         run: |
           mkdir -p debdir-arm64/usr/bin debdir-arm64/DEBIAN
           cp build/bin/pingplusplus debdir-arm64/usr/bin/
-          cat > debdir-arm64/DEBIAN/control << 'CONTROL'
-Package: pingplusplus
-Version: 1.0.0
-Architecture: arm64
-Maintainer: pingplusplus
-Description: High-performance batch ping tool
-Section: net
-Priority: optional
-Depends: libc6, libgcc-s1, libstdc++6, libxlsxwriter (>= 1.0.0), libqt6core6t64 (>= 6.5), libqt6guit6t64 (>= 6.5), libqt6network6t64 (>= 6.5), libqt6widgets6t64 (>= 6.5), libquazip5 (>= 1.0)
-CONTROL
+          printf 'Package: pingplusplus\nVersion: 1.0.0\nArchitecture: arm64\nMaintainer: pingplusplus\nDescription: High-performance batch ping tool\nSection: net\nPriority: optional\nDepends: libc6, libgcc-s1, libstdc++6, libxlsxwriter (>= 1.0.0), libqt6core6t64 (>= 6.5), libqt6guit6t64 (>= 6.5), libqt6network6t64 (>= 6.5), libqt6widgets6t64 (>= 6.5), libquazip5 (>= 1.0)\n' > debdir-arm64/DEBIAN/control
           dpkg-deb --build debdir-arm64 pingplusplus-linux-arm64.deb
 
       - name: Upload Linux ARM64 artifact
