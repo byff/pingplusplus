@@ -61,6 +61,8 @@ private slots:
 private:
     void expandCidr(const QString& cidr, QStringList& out);
     void expandDomain(const QString& domain, QStringList& out);
+
+public:
     QStringList parseInput(const QString& input);
     void startBatch();
 

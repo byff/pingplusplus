@@ -162,7 +162,8 @@ void PingEngine::startBatch() {
             PingWorker* worker = new PingWorker(
                 result.targetIp,
                 m_timeoutMs,
-                m_packetSize
+                m_packetSize,
+                m_currentIndex
             );
             worker->setProperty("index", m_currentIndex);
             connect(worker, &PingWorker::finished, this, &PingEngine::onWorkerFinished,

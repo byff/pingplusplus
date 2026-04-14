@@ -61,7 +61,6 @@ private slots:
     void onRefreshTimer();
     void onEngineStarted();
     void onEngineStopped();
-    void onEngineFinished();
     void onTargetCountChanged(int count);
     void onContextMenu(const QPoint &pos);
     void onAbout();

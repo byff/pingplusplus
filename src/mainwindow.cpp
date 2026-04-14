@@ -493,16 +493,6 @@ void MainWindow::onEngineStopped()
     }
 }
 
-void MainWindow::onEngineFinished()
-{
-    setUiEnabled(true);
-    m_isRunning = false;
-    ui.btnStop->setEnabled(false);
-    ui.btnStart->setEnabled(true);
-    m_refreshTimer->stop();
-    ui.labelStatus->setText(QStringLiteral("扫描完成"));
-}
-
 void MainWindow::onTargetCountChanged(int count)
 {
     m_totalTargets = count;
