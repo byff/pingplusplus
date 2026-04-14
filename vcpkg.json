@@ -1,0 +1,13 @@
+{
+  "$schema": "https://raw.githubusercontent.com/microsoft/vcpkg-tool/main/docs/vcpkg.schema.json",
+  "name": "pingtestpp",
+  "version": "1.0.0",
+  "dependencies": [
+    {
+      "name": "qt6",
+      "features": [ "core", "widgets", "network", "gui" ]
+    },
+    "xlsxwriter",
+    "quazip"
+  ]
+}

@@ -1,0 +1,128 @@
+name: pingtestpp CI Build
+
+on:
+  push:
+    branches:
+      - main
+    tags:
+      - 'v*'
+  workflow_dispatch:
+
+jobs:
+  windows:
+    runs-on: windows-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Install vcpkg
+        run: |
+          git clone https://github.com/microsoft/vcpkg.git "$env:VCPKG_ROOT"
+          cd $env:VCPKG_ROOT
+          ./bootstrap-vcpkg.bat
+
+      - name: Install dependencies via vcpkg
+        run: |
+          vcpkg install qt6:x64-windows xlsxwriter:x64-windows
+
+      - name: CMake configure
+        run: |
+          cmake -B build -DCMAKE_BUILD_TYPE=Release `
+            -DCMAKE_TOOLCHAIN_FILE="$env:VCPKG_ROOT/scripts/buildsystems/vcpkg.cmake"
+
+      - name: Build
+        run: cmake --build build --config Release
+
+      - name: Upload Windows artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: pingtestpp-windows-x64
+          path: build/bin/pingtestpp.exe
+
+  linux-x64:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Install Qt6
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y qt6-base-dev qt6-tools-dev libxlsxwriter-dev
+
+      - name: CMake configure
+        run: cmake -B build -DCMAKE_BUILD_TYPE=Release
+
+      - name: Build
+        run: cmake --build build --config Release
+
+      - name: Package as deb
+        run: |
+          mkdir -p debdir/usr/bin debdir/usr/share/pingtestpp debdir/DEBIAN
+          cp build/bin/pingtestpp debdir/usr/bin/
+          cat > debdir/DEBIAN/control << 'CONTROL'
+Package: pingtestpp
+Version: 1.0.0
+Architecture: amd64
+Maintainer: pingtestpp
+Description: High-performance batch ping tool
+Section: net
+Priority: optional
+Depends: libc6, libgcc-s1, libstdc++6, libxlsxwriter (>= 1.0.0), libqt6core6 (>= 6.5), libqt6gui6 (>= 6.5), libqt6network6 (>= 6.5), libqt6widgets6 (>= 6.5)
+CONTROL
+          dpkg-deb --build debdir pingtestpp-linux-x64.deb
+
+      - name: Upload Linux x64 artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: pingtestpp-linux-x64.deb
+          path: pingtestpp-linux-x64.deb
+
+  linux-arm64:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Install cross compile toolchain
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y g++-aarch64-linux-gnu binutils-aarch64-linux-gnu cmake
+
+      - name: Install Qt6 for ARM64
+        run: |
+          sudo dpkg --add-architecture arm64
+          sudo add-apt-repository -y "deb [arch=amd64] http://archive.ubuntu.com/ubuntu/ $(lsb_release -cs) main universe"
+          sudo apt-get update
+          sudo apt-get install -y qt6-base-dev:arm64 qt6-tools-dev:arm64
+
+      - name: CMake configure
+        run: |
+          cmake -B build -DCMAKE_BUILD_TYPE=Release \
+            -DCMAKE_TOOLCHAIN_FILE=/usr/aarch64-linux-gnu/cmake/Toolchain-aarch64.cmake \
+            -DCMAKE_CXX_COMPILER=aarch64-linux-gnu-g++
+
+      - name: Build
+        run: cmake --build build --config Release
+
+      - name: Package as deb
+        run: |
+          mkdir -p debdir/usr/bin debdir/usr/share/pingtestpp debdir/DEBIAN
+          cp build/bin/pingtestpp debdir/usr/bin/
+          cat > debdir/DEBIAN/control << 'CONTROL'
+Package: pingtestpp
+Version: 1.0.0
+Architecture: arm64
+Maintainer: pingtestpp
+Description: High-performance batch ping tool
+Section: net
+Priority: optional
+Depends: libc6, libgcc-s1, libstdc++6, libxlsxwriter (>= 1.0.0), libqt6core6t64 (>= 6.5), libqt6guit6t64 (>= 6.5), libqt6network6t64 (>= 6.5), libqt6widgets6t64 (>= 6.5)
+CONTROL
+          dpkg-deb --build debdir pingtestpp-linux-arm64.deb
+
+      - name: Upload Linux ARM64 artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: pingtestpp-linux-arm64.deb
+          path: pingtestpp-linux-arm64.deb
