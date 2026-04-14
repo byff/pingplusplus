@@ -8,9 +8,6 @@ on:
       - 'v*'
   workflow_dispatch:
 
-env:
-  VCPKG_BINARY_CACHE: /tmp/vcpkg-cache
-
 jobs:
   windows:
     runs-on: windows-latest
@@ -18,31 +15,21 @@ jobs:
       - name: Checkout code
         uses: actions/checkout@v4
 
-      - name: Cache vcpkg
-        uses: actions/cache@v4
-        with:
-          path: C:/vcpkg
-          key: vcpkg-win-${{ hashFiles('vcpkg.json') }}
-          restore-keys: vcpkg-win-
+      - name: Setup vcpkg
+        uses: litwk/vcpkg-action@v1
 
-      - name: Install vcpkg
-        if: steps.cache.outputs.cache-hit != 'true'
-        run: |
-          git clone https://github.com/microsoft/vcpkg.git C:/vcpkg
-          C:/vcpkg/bootstrap-vcpkg.bat
-
-      - name: Install dependencies via vcpkg
-        run: vcpkg install qt6:x64-windows xlsxwriter quazip:x64-windows --clean-after-build
+      - name: Install dependencies
+        run: vcpkg install qt6:x64-windows xlsxwriter quazip:x64-windows
 
       - name: CMake configure
         run: |
           cmake -B build -DCMAKE_BUILD_TYPE=Release ^
-            -DCMAKE_TOOLCHAIN_FILE="C:/vcpkg/scripts/buildsystems/vcpkg.cmake"
+            -DCMAKE_TOOLCHAIN_FILE="$env:VCPKG_ROOT/scripts/buildsystems/vcpkg.cmake"
 
       - name: Build
         run: cmake --build build --config Release
 
-      - name: Upload Windows artifact
+      - name: Upload artifact
         uses: actions/upload-artifact@v4
         with:
           name: pingplusplus-windows-x64
@@ -67,7 +54,7 @@ jobs:
       - name: CMake configure
         run: |
           cmake -B build -DCMAKE_BUILD_TYPE=Release \
-            -DQUAZIP_INCLUDE_DIR=/usr/include/quazip
+            -DCMAKE_FIND_PACKAGE_NO_PACKAGE_REGISTRY=ON
 
       - name: Build
         run: cmake --build build --config Release
@@ -79,50 +66,8 @@ jobs:
           printf 'Package: pingplusplus\nVersion: 1.0.0\nArchitecture: amd64\nMaintainer: pingplusplus\nDescription: High-performance batch ping tool\nSection: net\nPriority: optional\nDepends: libc6, libgcc-s1, libstdc++6, libxlsxwriter (>= 1.0.0), libqt6core6t64 (>= 6.5), libqt6guit6t64 (>= 6.5), libqt6network6t64 (>= 6.5), libqt6widgets6t64 (>= 6.5), libquazip5 (>= 1.0)\n' > debdir/DEBIAN/control
           dpkg-deb --build debdir pingplusplus-linux-x64.deb
 
-      - name: Upload Linux x64 artifact
+      - name: Upload artifact
         uses: actions/upload-artifact@v4
         with:
           name: pingplusplus-linux-x64.deb
           path: pingplusplus-linux-x64.deb
-
-  linux-arm64:
-    runs-on: ubuntu-24.04
-    steps:
-      - name: Checkout code
-        uses: actions/checkout@v4
-
-      - name: Install cross compile toolchain
-        run: |
-          sudo apt-get update
-          sudo apt-get install -y --no-install-recommends \
-            g++-aarch64-linux-gnu \
-            binutils-aarch64-linux-gnu \
-            cmake \
-            qt6-base-dev:arm64 \
-            qt6-base-private-dev:arm64 \
-            libxlsxwriter-dev:arm64 \
-            libquazip5-dev:arm64
-
-      - name: CMake configure (cross-compile)
-        run: |
-          cmake -B build -DCMAKE_BUILD_TYPE=Release \
-            -DCMAKE_C_COMPILER=aarch64-linux-gnu-gcc \
-            -DCMAKE_CXX_COMPILER=aarch64-linux-gnu-g++ \
-            -DCMAKE_SYSROOT=/usr/aarch64-linux-gnu \
-            -DQUAZIP_INCLUDE_DIR=/usr/include/aarch64-linux-gnu/quazip
-
-      - name: Build
-        run: cmake --build build --config Release
-
-      - name: Package as deb
-        run: |
-          mkdir -p debdir-arm64/usr/bin debdir-arm64/DEBIAN
-          cp build/bin/pingplusplus debdir-arm64/usr/bin/
-          printf 'Package: pingplusplus\nVersion: 1.0.0\nArchitecture: arm64\nMaintainer: pingplusplus\nDescription: High-performance batch ping tool\nSection: net\nPriority: optional\nDepends: libc6, libgcc-s1, libstdc++6, libxlsxwriter (>= 1.0.0), libqt6core6t64 (>= 6.5), libqt6guit6t64 (>= 6.5), libqt6network6t64 (>= 6.5), libqt6widgets6t64 (>= 6.5), libquazip5 (>= 1.0)\n' > debdir-arm64/DEBIAN/control
-          dpkg-deb --build debdir-arm64 pingplusplus-linux-arm64.deb
-
-      - name: Upload Linux ARM64 artifact
-        uses: actions/upload-artifact@v4
-        with:
-          name: pingplusplus-linux-arm64.deb
-          path: pingplusplus-linux-arm64.deb
