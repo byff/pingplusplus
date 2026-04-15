@@ -74,19 +74,21 @@ jobs:
         run: |
           windeployqt build/bin/pingplusplus.exe --no-translations --no-compiler-runtime --no-opengl-sw
 
-      - name: Bundle native libs (libxlsxwriter, libgcc, libstdc++)
+      - name: Bundle native libs (libxlsxwriter, quazip)
         shell: msys2 {0}
         run: |
-          mingwBin="C:/msys64/mingw64/bin"
+          mingwBin="/mingw64/bin"
           deployDir="build/bin"
-          echo "=== Looking for DLLs ==="
-          find /mingw64 /c/msys64 -name "*.dll" 2>/dev/null | grep -iE 'xlsx|quazip' | head -20
-          echo "=== mingw64/bin DLLs ==="
-          ls /mingw64/bin/*.dll 2>/dev/null | head -20
-          echo "=== msys64/bin DLLs ==="
-          ls /c/msys64/mingw64/bin/*.dll 2>/dev/null | head -20
-          echo "=== What does ldd show? ==="
-          ldd build/bin/pingplusplus.exe | head -20
+          # Copy third-party DLLs that windeployqt doesn't handle
+          for dll in libxlsxwriter.dll libquazip1-qt6.dll; do
+            if [ -f "$mingwBin/$dll" ]; then
+              cp "$mingwBin/$dll" "$deployDir/" && echo "Copied: $dll"
+            else
+              echo "Not found: $dll"
+            fi
+          done
+          echo "---Third-party DLLs deployed---"
+          ls -la build/bin/lib*.dll
 
       - name: Upload artifact
         uses: actions/upload-artifact@v4
