@@ -78,34 +78,28 @@ jobs:
       - name: Bundle all native DLLs
         shell: msys2 {0}
         run: |
-          deployDir="build/bin"
           mingwBin="/mingw64/bin"
+          deployDir="build/bin"
 
-          # windeployqt already ran - now find every DLL the exe actually needs
-          echo "=== Scanning exe dependencies with ldd ==="
-          ldd build/bin/pingplusplus.exe | grep -E 'not found|=> /mingw64' | while read line; do
-            echo "$line"
+          # windeployqt deploys Qt plugins to subdirs but misses ALL mingw64 DLLs.
+          # ldd shows 28 DLLs resolve from /mingw64/bin that windeployqt never touched.
+          # Copy them all, then also grab known font/codec libs windeployqt skips.
+          echo "=== DLLs that windeployqt misses (resolved from mingw64) ==="
+          ldd build/bin/pingplusplus.exe | grep '=> /mingw64' | awk '{print $3}' | sort -u | while read path; do
+            dll=$(basename "$path")
+            cp "$path" "$deployDir/$dll" 2>/dev/null && echo "Copied: $dll"
           done
 
-          echo "=== Copy all missing DLLs ==="
-          ldd build/bin/pingplusplus.exe | grep 'not found' | awk '{print $1}' | while read dll; do
-            src="$mingwBin/$dll"
-            if [ -f "$src" ]; then
-              cp "$src" "$deployDir/" && echo "Copied: $dll"
-            else
-              echo "MISSING (not in mingw64): $dll"
-            fi
+          # Extra: windeployqt also skips these font/codec libs needed by Qt6Gui
+          for dll in libfreetype-6.dll libharfbuzz-0.dll libpng16-16.dll libmd4c.dll \
+                     libbz2-1.dll libzstd.dll libiconv-2.dll libgraphite2.dll \
+                     Qt6Core5Compat.dll libglib-2.0-0.dll libintl-8.dll libpcre2-8-0.dll \
+                     libbrotlidec.dll libbrotlicommon.dll; do
+            [ -f "$mingwBin/$dll" ] && cp "$mingwBin/$dll" "$deployDir/$dll" && echo "Extra: $dll"
           done
 
-          echo "=== Also copy DLLs that windeployqt may have missed (font/text libs) ==="
-          for dll in libfreetype-6.dll libharfbuzz-0.dll libpng16-16.dll libmd4c.dll libbrotlidec.dll libbz2-1.dll libzstd.dll libiconv-2.dll; do
-            if [ -f "$mingwBin/$dll" ]; then
-              cp "$mingwBin/$dll" "$deployDir/" && echo "Extra: $dll"
-            fi
-          done
-
-          echo "=== Final DLL list ==="
-          ls -la build/bin/*.dll build/bin/lib*.dll 2>/dev/null | awk '{print $NF}'
+          echo "=== All DLLs now in deploy dir ==="
+          ls -la build/bin/*.dll build/bin/lib*.dll 2>/dev/null
 
       - name: Upload artifact
         uses: actions/upload-artifact@v4
