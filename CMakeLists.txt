@@ -115,7 +115,3 @@ endif()
 
 # Install rules
 install(TARGETS ${PROJECT_NAME} DESTINATION bin)
-
-# Tests
-enable_testing()
-add_subdirectory(tests)

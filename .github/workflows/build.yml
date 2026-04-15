@@ -47,11 +47,6 @@ jobs:
       - name: Checkout code
         uses: actions/checkout@v4
 
-      - name: Setup Qt
-        uses: jurplel/qt-actions@v3
-        with:
-          version: '6.5.3'
-
       - name: Setup vcpkg
         run: |
           git clone --depth 1 https://github.com/microsoft/vcpkg.git $env:VCPKG_ROOT
@@ -61,7 +56,7 @@ jobs:
 
       - name: Install build deps
         run: |
-          $env:VCPKG_ROOT/vcpkg install libxlsxwriter quazip qt6-base:x64-windows
+          $env:VCPKG_ROOT/vcpkg install qtbase:x64-windows libxlsxwriter quazip
         env:
           VCPKG_ROOT: $env:GITHUB_WORKSPACE/vcpkg
 
