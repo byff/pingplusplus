@@ -63,6 +63,7 @@ set(SOURCES
     src/import/excelimporter.cpp
     src/export/excelexporter.cpp
     src/config/configmanager.cpp
+    src/settingsdialog.cpp
 )
 
 set(HEADERS
@@ -75,6 +76,7 @@ set(HEADERS
     src/import/excelimporter.h
     src/export/excelexporter.h
     src/config/configmanager.h
+    src/settingsdialog.h
 )
 
 # Windows: GUI subsystem (no console)

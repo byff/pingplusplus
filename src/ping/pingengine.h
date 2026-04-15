@@ -81,7 +81,5 @@ public:
     int m_maxConcurrent = 500;
     bool m_continuousMode = false;
 
-    int m_onlineCount = 0;
-    int m_offlineCount = 0;
     int m_currentIndex = 0;
 };

@@ -67,6 +67,7 @@ private slots:
     void onToggleTheme();
     void onSettings();
     void onUpdateTable();
+    void onExtractIps();
 
 private:
     void setupUi();
@@ -96,6 +97,7 @@ private:
         QPushButton *btnImport = nullptr;
         QPushButton *btnExport = nullptr;
         QPushButton *btnInsertResults = nullptr;
+        QPushButton *btnExtractIps = nullptr;
         QPushButton *btnSettings = nullptr;
         QPushButton *btnAbout = nullptr;
         QPushButton *btnToggleTheme = nullptr;

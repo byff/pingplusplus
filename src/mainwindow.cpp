@@ -1,4 +1,6 @@
 #include "mainwindow.h"
+#include "settingsdialog.h"
+#include "config/configmanager.h"
 #include "ping/pingengine.h"
 #include "model/resulttablemodel.h"
 #include "export/excelexporter.h"
@@ -77,6 +79,7 @@ void MainWindow::setupToolbar()
     ui.btnImport     = new QPushButton(QStringLiteral("导入"));
     ui.btnExport     = new QPushButton(QStringLiteral("导出"));
     ui.btnInsertResults = new QPushButton(QStringLiteral("插入结果"));
+    ui.btnExtractIps    = new QPushButton(QStringLiteral("提取IP"));
     ui.btnSettings   = new QPushButton(QStringLiteral("设置"));
     ui.btnAbout      = new QPushButton(QStringLiteral("关于"));
     ui.btnToggleTheme = new QPushButton(QStringLiteral("切换主题"));
@@ -90,6 +93,7 @@ void MainWindow::setupToolbar()
     ui.toolbar->addWidget(ui.btnImport);
     ui.toolbar->addWidget(ui.btnExport);
     ui.toolbar->addWidget(ui.btnInsertResults);
+    ui.toolbar->addWidget(ui.btnExtractIps);
     ui.toolbar->addSeparator();
     ui.toolbar->addWidget(ui.btnSettings);
     ui.toolbar->addWidget(ui.btnAbout);
@@ -114,62 +118,16 @@ void MainWindow::setupInputArea()
     ui.textInput->setMaximumHeight(120);
     targetLayout->addWidget(ui.textInput);
 
-    // Config group
-    QGroupBox *configGroup = new QGroupBox(QStringLiteral("配置"));
-    QGridLayout *configLayout = new QGridLayout(configGroup);
-
-    // Timeout
-    QLabel *labelTimeout = new QLabel(QStringLiteral("超时(ms):"));
-    ui.editTimeout = new QLineEdit;
-    ui.editTimeout->setText(QString::number(DEFAULT_TIMEOUT_MS));
-    ui.editTimeout->setMaximumWidth(100);
-
-    // Interval
-    QLabel *labelInterval = new QLabel(QStringLiteral("间隔(ms):"));
-    ui.spinInterval = new QDoubleSpinBox;
-    ui.spinInterval->setRange(100, 60000);
-    ui.spinInterval->setValue(DEFAULT_INTERVAL_SEC * 1000);
-    ui.spinInterval->setSuffix(QStringLiteral(" ms"));
-    ui.spinInterval->setMaximumWidth(120);
-
-    // Packet size
-    QLabel *labelPacketSize = new QLabel(QStringLiteral("数据包大小:"));
-    ui.spinPacketSize = new QSpinBox;
-    ui.spinPacketSize->setRange(8, 65500);
-    ui.spinPacketSize->setValue(DEFAULT_PACKET_SIZE);
-    ui.spinPacketSize->setMaximumWidth(100);
-
-    // Concurrent
-    QLabel *labelConcurrent = new QLabel(QStringLiteral("并发数:"));
-    ui.spinConcurrent = new QSpinBox;
-    ui.spinConcurrent->setRange(10, 5000);
-    ui.spinConcurrent->setValue(DEFAULT_CONCURRENT);
-    ui.spinConcurrent->setMaximumWidth(100);
-
-    // Continuous mode
-    ui.checkContinuous = new QCheckBox(QStringLiteral("持续探测"));
-    ui.checkContinuous->setChecked(false);
-
-    // Filter
+    // Filter row
+    QHBoxLayout *filterLayout = new QHBoxLayout;
     QLabel *labelFilter = new QLabel(QStringLiteral("过滤:"));
     ui.editFilter = new QLineEdit;
     ui.editFilter->setPlaceholderText(QStringLiteral("输入过滤关键字..."));
-    ui.editFilter->setMaximumWidth(200);
-
-    configLayout->addWidget(labelTimeout,     0, 0);
-    configLayout->addWidget(ui.editTimeout,  0, 1);
-    configLayout->addWidget(labelInterval,    0, 2);
-    configLayout->addWidget(ui.spinInterval,  0, 3);
-    configLayout->addWidget(labelPacketSize, 1, 0);
-    configLayout->addWidget(ui.spinPacketSize, 1, 1);
-    configLayout->addWidget(labelConcurrent,  1, 2);
-    configLayout->addWidget(ui.spinConcurrent, 1, 3);
-    configLayout->addWidget(ui.checkContinuous, 1, 4, Qt::AlignLeft);
-    configLayout->addWidget(labelFilter,     2, 0);
-    configLayout->addWidget(ui.editFilter,    2, 1, 1, 4);
+    filterLayout->addWidget(labelFilter);
+    filterLayout->addWidget(ui.editFilter);
+    targetLayout->addLayout(filterLayout);
 
     inputLayout->addWidget(targetGroup);
-    inputLayout->addWidget(configGroup);
 }
 
 void MainWindow::setupTableView()
@@ -258,11 +216,8 @@ void MainWindow::createConnections()
     // Filter
     connect(ui.editFilter, &QLineEdit::textChanged, this, &MainWindow::onFilterChanged);
 
-    // Config changes
-    connect(ui.editTimeout,   &QLineEdit::editingFinished,   this, &MainWindow::onConfigChanged);
-    connect(ui.spinInterval,  QOverload<double>::of(&QDoubleSpinBox::valueChanged), this, &MainWindow::onConfigChanged);
-    connect(ui.spinPacketSize,QOverload<int>::of(&QSpinBox::valueChanged), this, &MainWindow::onConfigChanged);
-    connect(ui.spinConcurrent,QOverload<int>::of(&QSpinBox::valueChanged), this, &MainWindow::onConfigChanged);
+    // Extract IP
+    connect(ui.btnExtractIps, &QPushButton::clicked, this, &MainWindow::onExtractIps);
 
     // Refresh timer
     connect(m_refreshTimer, &QTimer::timeout, this, &MainWindow::onRefreshTimer);
@@ -282,18 +237,12 @@ void MainWindow::onStart()
         return;
     }
 
-    // Apply config
-    int timeout    = ui.editTimeout->text().toInt();
-    int interval   = static_cast<int>(ui.spinInterval->value());
-    int packetSize = ui.spinPacketSize->value();
-    int concurrent = ui.spinConcurrent->value();
-    bool continuous = ui.checkContinuous->isChecked();
-
-    m_pingEngine->setTimeout(timeout);
-    m_pingEngine->setInterval(interval);
-    m_pingEngine->setPacketSize(packetSize);
-    m_pingEngine->setMaxConcurrent(concurrent);
-    m_pingEngine->setContinuousMode(continuous);
+    ConfigManager &cfg = ConfigManager::instance();
+    m_pingEngine->setTimeout(cfg.timeoutMs());
+    m_pingEngine->setInterval(cfg.intervalMs());
+    m_pingEngine->setPacketSize(cfg.packetSize());
+    m_pingEngine->setMaxConcurrent(cfg.maxConcurrent());
+    m_pingEngine->setContinuousMode(cfg.continuousMode());
 
     m_pingEngine->setTargets(targets);
     m_pingEngine->start();
@@ -533,6 +482,29 @@ void MainWindow::onAbout()
                        "支持Excel导入导出"));
 }
 
+void MainWindow::onExtractIps()
+{
+    QVariantList allResults = m_pingEngine->getAllResults();
+    QStringList onlineIps;
+
+    for (const QVariant &v : allResults) {
+        PingResult r = PingResult::fromVariant(v);
+        if (r.isOnline && !r.targetIp.isEmpty()) {
+            onlineIps.append(r.targetIp);
+        }
+    }
+
+    if (onlineIps.isEmpty()) {
+        showInfo(QStringLiteral("提取IP"), QStringLiteral("没有在线的IP"));
+        return;
+    }
+
+    QString text = onlineIps.join(QStringLiteral("\n"));
+    QApplication::clipboard()->setText(text);
+    showInfo(QStringLiteral("提取IP"),
+        QStringLiteral("已复制 %1 个在线IP到剪贴板").arg(onlineIps.size()));
+}
+
 void MainWindow::onToggleTheme()
 {
     if (m_currentTheme == Theme::Light) {
@@ -544,7 +516,19 @@ void MainWindow::onToggleTheme()
 
 void MainWindow::onSettings()
 {
-    showInfo(QStringLiteral("设置"), QStringLiteral("设置功能开发中..."));
+    SettingsDialog dlg(this);
+    connect(&dlg, &SettingsDialog::themeChangedFromDialog, this, [this](const QString &theme) {
+        if (theme == "dark") setTheme(Theme::Dark);
+        else if (theme == "light") setTheme(Theme::Light);
+        else {
+            // system - use light as default
+            setTheme(Theme::Light);
+        }
+    });
+    connect(&dlg, &SettingsDialog::configApplied, this, [this]() {
+        // Could notify user or refresh display
+    });
+    dlg.exec();
 }
 
 void MainWindow::setTheme(Theme theme)
@@ -594,11 +578,6 @@ void MainWindow::setUiEnabled(bool enabled)
     ui.btnStart->setEnabled(enabled);
     ui.btnStop->setEnabled(!enabled && m_isRunning);
     ui.textInput->setEnabled(enabled);
-    ui.editTimeout->setEnabled(enabled);
-    ui.spinInterval->setEnabled(enabled);
-    ui.spinPacketSize->setEnabled(enabled);
-    ui.spinConcurrent->setEnabled(enabled);
-    ui.checkContinuous->setEnabled(enabled);
     ui.btnImport->setEnabled(enabled);
     ui.btnExport->setEnabled(enabled);
     ui.btnInsertResults->setEnabled(enabled);

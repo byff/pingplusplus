@@ -129,8 +129,6 @@ void PingEngine::start() {
 
     m_running = true;
     m_stopRequested = false;
-    m_onlineCount = 0;
-    m_offlineCount = 0;
     m_currentIndex = 0;
 
     emit started();
@@ -158,7 +156,6 @@ void PingEngine::startBatch() {
             result.isOnline = false;
             result.lossRate = 1.0;
             result.lost = 1;
-            m_offlineCount++;
             emit resultsUpdated();
         } else {
             PingWorker* worker = new PingWorker(
@@ -169,7 +166,7 @@ void PingEngine::startBatch() {
             );
             worker->setProperty("index", m_currentIndex);
             connect(worker, &PingWorker::finished, this, &PingEngine::onWorkerFinished,
-                    Qt::QueuedConnection);
+                    Qt::DirectConnection);
             worker->setAutoDelete(true);
             m_threadPool->start(worker);
             batchCount++;
@@ -210,8 +207,6 @@ void PingEngine::stop() {
 void PingEngine::clear() {
     stop();
     m_results.clear();
-    m_onlineCount = 0;
-    m_offlineCount = 0;
     m_currentIndex = 0;
     emit targetCountChanged(0);
     emit resultsUpdated();
@@ -231,22 +226,26 @@ QVariantList PingEngine::getAllResults() const {
 }
 
 int PingEngine::totalTargets() const { return m_results.size(); }
-int PingEngine::onlineCount() const { return m_onlineCount; }
-int PingEngine::offlineCount() const { return m_offlineCount; }
+int PingEngine::onlineCount() const {
+    int count = 0;
+    for (const auto& r : m_results) {
+        if (r.isOnline) ++count;
+    }
+    return count;
+}
+
+int PingEngine::offlineCount() const {
+    int count = 0;
+    for (const auto& r : m_results) {
+        if (!r.isOnline && !r.isRunning && !r.dnsFailed) ++count;
+    }
+    return count;
+}
 
 void PingEngine::onWorkerFinished(int index, bool success, qint64 rttUs) {
-    Q_UNUSED(index);
+    if (index < 0 || index >= (int)m_results.size()) return;
 
-    int idx = -1;
-    if (sender()) {
-        bool ok;
-        idx = sender()->property("index").toInt(&ok);
-        if (!ok) idx = -1;
-    }
-
-    if (idx < 0 || idx >= (int)m_results.size()) return;
-
-    PingResult& result = m_results[idx];
+    PingResult& result = m_results[index];
 
     result.sent++;
     result.lastRttUs = rttUs;
@@ -254,17 +253,14 @@ void PingEngine::onWorkerFinished(int index, bool success, qint64 rttUs) {
     if (success) {
         result.received++;
         result.isOnline = true;
-        m_onlineCount++;
         if (rttUs >= 0) {
             if (result.minRttUs == 0 || rttUs < result.minRttUs) result.minRttUs = rttUs;
             if (rttUs > result.maxRttUs) result.maxRttUs = rttUs;
-            // Running average
             result.avgRttUs = ((result.avgRttUs * (result.received - 1)) + rttUs) / result.received;
         }
     } else {
         result.lost++;
         result.isOnline = false;
-        m_offlineCount++;
     }
 
     result.lossRate = (result.sent > 0) ? static_cast<double>(result.lost) / result.sent : 0.0;

@@ -13,7 +13,6 @@ public:
 
 signals:
     void finished(int index, bool success, qint64 rttUs);
-
 private:
     QString m_targetIp;
     int m_timeoutMs;
