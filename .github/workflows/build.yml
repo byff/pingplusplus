@@ -9,41 +9,6 @@ on:
   workflow_dispatch:
 
 jobs:
-  windows:
-    runs-on: windows-latest
-    steps:
-      - name: Checkout code
-        uses: actions/checkout@v4
-
-      - name: Install Qt6 via aqt
-        run: |
-          python -m pip install aqtinstall
-          aqt install-qt windows desktop 6.5.3 win64_msvc2019_64 -O C:/Qt
-
-      - name: Install build deps via vcpkg
-        run: |
-          git clone --depth 1 https://github.com/microsoft/vcpkg.git C:/vcpkg
-          C:/vcpkg/bootstrap-vcpkg.bat -disableMetrics
-          C:/vcpkg/vcpkg install libxlsxwriter quazip --clean-build-deps
-        env:
-          VCPKG_ROOT: C:/vcpkg
-
-      - name: CMake configure
-        run: |
-          cmake -B build -DCMAKE_BUILD_TYPE=Release ^
-            -DCMAKE_TOOLCHAIN_FILE=C:/vcpkg/scripts/buildsystems/vcpkg.cmake ^
-            -DVCPKG_TARGET_TRIPLET=x64-windows ^
-            -DCMAKE_PREFIX_PATH=C:/Qt/6.5.3/msvc2019_64/lib/cmake
-
-      - name: Build
-        run: cmake --build build --config Release
-
-      - name: Upload artifact
-        uses: actions/upload-artifact@v4
-        with:
-          name: pingplusplus-windows-x64
-          path: build/bin/pingplusplus.exe
-
   linux-x64:
     runs-on: ubuntu-24.04
     steps:
@@ -53,7 +18,7 @@ jobs:
       - name: Install dependencies
         run: |
           sudo apt-get update
-          sudo apt-get install -y qt6-base-dev libquazip5-qt6-dev libxlsxwriter-dev cmake ninja-build
+          sudo apt-get install -y qt6-base-dev libxlsxwriter-dev libquazip5-dev cmake ninja-build
 
       - name: CMake configure
         run: |
@@ -67,7 +32,7 @@ jobs:
         run: |
           mkdir -p debdir/usr/bin debdir/DEBIAN
           cp build/bin/pingplusplus debdir/usr/bin/
-          printf 'Package: pingplusplus\nVersion: 1.0.0\nArchitecture: amd64\nMaintainer: pingplusplus\nDescription: High-performance batch ping tool\nSection: net\nPriority: optional\nDepends: libc6, libgcc-s1, libstdc++6, libxlsxwriter (>= 1.0.0), libqt6core6t64 (>= 6.5), libqt6guit6t64 (>= 6.5), libqt6network6t64 (>= 6.5), libqt6widgets6t64 (>= 6.5), libquazip5qt6-1 (>= 1.0)\n' > debdir/DEBIAN/control
+          printf 'Package: pingplusplus\nVersion: 1.0.0\nArchitecture: amd64\nMaintainer: pingplusplus\nDescription: High-performance batch ping tool\nSection: net\nPriority: optional\nDepends: libc6, libgcc-s1, libstdc++6, libxlsxwriter (>= 1.0.0), libqt6core6t64 (>= 6.5), libqt6guit6t64 (>= 6.5), libqt6network6t64 (>= 6.5), libqt6widgets6t64 (>= 6.5), libquazip5-1t64 (>= 1.0)\n' > debdir/DEBIAN/control
           dpkg-deb --build debdir pingplusplus-linux-x64.deb
 
       - name: Upload artifact
@@ -75,3 +40,42 @@ jobs:
         with:
           name: pingplusplus-linux-x64.deb
           path: pingplusplus-linux-x64.deb
+
+  windows:
+    runs-on: windows-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup Qt
+        uses: jurplel/qt-actions@v3
+        with:
+          version: '6.5.3'
+
+      - name: Setup vcpkg
+        run: |
+          git clone --depth 1 https://github.com/microsoft/vcpkg.git $env:VCPKG_ROOT
+          $env:VCPKG_ROOT/bootstrap-vcpkg.bat -disableMetrics
+        env:
+          VCPKG_ROOT: $env:GITHUB_WORKSPACE/vcpkg
+
+      - name: Install build deps
+        run: |
+          $env:VCPKG_ROOT/vcpkg install libxlsxwriter quazip qt6-base:x64-windows
+        env:
+          VCPKG_ROOT: $env:GITHUB_WORKSPACE/vcpkg
+
+      - name: CMake configure
+        run: |
+          cmake -B build -DCMAKE_BUILD_TYPE=Release `
+            -DCMAKE_TOOLCHAIN_FILE="$env:VCPKG_ROOT/scripts/buildsystems/vcpkg.cmake" `
+            -DVCPKG_TARGET_TRIPLET=x64-windows
+
+      - name: Build
+        run: cmake --build build --config Release
+
+      - name: Upload artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: pingplusplus-windows-x64
+          path: build/bin/pingplusplus.exe
