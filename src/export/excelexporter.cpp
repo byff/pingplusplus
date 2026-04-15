@@ -1,5 +1,5 @@
 #include "excelexporter.h"
-#include "pingresult.h"
+#include "../ping/pingresult.h"
 #include <xlsxwriter.h>
 #include <QFile>
 #include <QTextStream>

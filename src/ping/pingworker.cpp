@@ -143,7 +143,7 @@ void PingWorker::run() {
     icmpPkt.icmp_seq  = static_cast<quint16>(m_index & 0xFFFF);
 
     // Fill payload
-    char* payload = icmpPkt.icmp_data;
+    char* payload = reinterpret_cast<char*>(icmpPkt.icmp_data);
     for (int i = 0; i < m_payloadSize; ++i) {
         payload[i] = static_cast<char>((i + m_index) & 0xFF);
     }

@@ -4,6 +4,7 @@
 #include <QHostAddress>
 #include <QUrl>
 #include <QVariant>
+#include <QTimer>
 #include <memory>
 #include <vector>
 #include <atomic>

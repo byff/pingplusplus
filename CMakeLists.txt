@@ -3,6 +3,9 @@ project(pingplusplus LANGUAGES CXX)
 
 set(CMAKE_CXX_STANDARD 17)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
+set(CMAKE_AUTOMOC ON)
+set(CMAKE_AUTORCC ON)
+set(CMAKE_AUTOUIC ON)
 
 # Portable output directory
 set(CMAKE_RUNTIME_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}/bin)
@@ -10,44 +13,42 @@ set(CMAKE_RUNTIME_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}/bin)
 # Qt 6.5+
 set(QT_MIN_VERSION 6.5)
 find_package(Qt6 REQUIRED COMPONENTS Core Widgets Network Gui)
-
-# Qt XML for xlsx parsing (QuaZip uses it internally)
 find_package(Qt6 QUIET COMPONENTS Xml)
+find_package(Qt6 QUIET COMPONENTS Core5Compat)
 
-# XlsxWriter
+# XlsxWriter - use system package
+set(XLSXWRITER_FOUND_SYSTEM FALSE)
 find_package(XlsxWriter QUIET)
 if(NOT XlsxWriter_FOUND)
-    find_package(PkgConfig QUIET)
-    if(PkgConfig_FOUND)
-        pkg_check_modules(XLSXWRITER QUIET libxlsxwriter)
-    endif()
-    if(NOT XLSXWRITER_FOUND)
-        include(FetchContent)
-        FetchContent_Declare(
-            xlsxwriter
-            GIT_REPOSITORY https://github.com/jmcnamara/xlsxwriter.git
-            GIT_TAG main
-        )
-        FetchContent_MakeAvailable(xlsxwriter)
+    find_path(XLSXWRITER_INCLUDE_DIRS NAMES xlsxwriter.h PATHS /usr/include /usr/local/include)
+    find_library(XLSXWRITER_LIBRARIES NAMES xlsxwriter PATHS /usr/lib /usr/lib64 /usr/local/lib)
+    if(XLSXWRITER_INCLUDE_DIRS AND XLSXWRITER_LIBRARIES)
+        set(XLSXWRITER_FOUND TRUE)
+        set(XLSXWRITER_FOUND_SYSTEM TRUE)
     endif()
 endif()
+if(NOT XLSXWRITER_FOUND)
+    message(FATAL_ERROR "XlsxWriter not found. Install libxlsxwriter-dev or xlsxwriter via FetchContent.")
+endif()
 
-# QuaZip for xlsx reading
-find_package(QuaZip QUIET)
+# QuaZip - use system Qt6 package
+set(QUAZIP_FOUND_SYSTEM FALSE)
+# Qt6 quazip provides QuaZip-Qt6Config.cmake, not QuaZipConfig.cmake
+find_package(QuaZip-Qt6 QUIET)
+if(NOT QuaZip-Qt6_FOUND)
+    # Fallback to standard name
+    find_package(QuaZip QUIET)
+endif()
+if(QuaZip-Qt6_FOUND)
+    message(STATUS "Found system QuaZip Qt6")
+    set(QuaZip_FOUND TRUE)
+    set(QUAZIP_FOUND_SYSTEM TRUE)
+elseif(QuaZip_FOUND)
+    message(STATUS "Found system QuaZip (Qt5 version)")
+endif()
+
 if(NOT QuaZip_FOUND)
-    find_package(PkgConfig QUIET)
-    if(PkgConfig_FOUND)
-        pkg_check_modules(QUAZIP QUIET libquazip5)
-    endif()
-    if(NOT QUAZIP_FOUND)
-        include(FetchContent)
-        FetchContent_Declare(
-            quazip
-            GIT_REPOSITORY https://github.com/stachenov/quazip.git
-            GIT_TAG v1.5
-        )
-        FetchContent_MakeAvailable(quazip)
-    endif()
+    message(FATAL_ERROR "QuaZip not found. Install libquazip1-qt6-dev.")
 endif()
 
 # Sources
@@ -92,6 +93,9 @@ target_link_libraries(${PROJECT_NAME} PRIVATE
     Qt6::Gui
 )
 
+# Add source directory for headers
+target_include_directories(${PROJECT_NAME} PRIVATE ${CMAKE_SOURCE_DIR}/src)
+
 # Link XlsxWriter
 if(TARGET xlsxwriter)
     target_link_libraries(${PROJECT_NAME} PRIVATE xlsxwriter)
@@ -103,9 +107,8 @@ endif()
 # Link QuaZip
 if(TARGET QuaZip::QuaZip)
     target_link_libraries(${PROJECT_NAME} PRIVATE QuaZip::QuaZip)
-elseif(QUAZIP_FOUND)
-    target_link_libraries(${PROJECT_NAME} PRIVATE ${QUAZIP_LIBRARIES})
-    target_include_directories(${PROJECT_NAME} PRIVATE ${QUAZIP_INCLUDE_DIRS})
+else()
+    message(FATAL_ERROR "QuaZip::QuaZip target not found")
 endif()
 
 # Windows-specific libs (raw ICMP)

@@ -66,6 +66,7 @@ private slots:
     void onAbout();
     void onToggleTheme();
     void onSettings();
+    void onUpdateTable();
 
 private:
     void setupUi();
@@ -147,5 +148,3 @@ private:
     static constexpr int DEFAULT_PACKET_SIZE = 64;
     static constexpr int DEFAULT_CONCURRENT = 10;
 };
-
-#endif // MAINWINDOW_H

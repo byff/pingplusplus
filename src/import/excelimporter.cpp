@@ -7,9 +7,9 @@
 #include <QDir>
 #include <QDebug>
 #include <QBuffer>
-#include <QuaZip/quazip.h>
-#include <QuaZip/quazipfile.h>
-#include <QuaZip/quazipdir.h>
+#include <QuaZip-Qt6-1.4/quazip/quazip.h>
+#include <QuaZip-Qt6-1.4/quazip/quazipfile.h>
+#include <QuaZip-Qt6-1.4/quazip/quazipdir.h>
 
 ExcelImporter::ExcelImporter(QObject* parent)
     : QObject(parent)
@@ -63,14 +63,14 @@ ExcelImporter::ImportResult ExcelImporter::import(const QString& filePath)
 
         // Read shared strings (xl/sharedStrings.xml)
         QuaZipFile sharedFile(&zip);
-        if (sharedFile.open(QuaZip::mdUnzip, "xl/sharedStrings.xml")) {
+        if (sharedFile.open(QIODevice::ReadOnly, "xl/sharedStrings.xml")) {
             sharedStringsXml = QString::fromUtf8(sharedFile.readAll());
             sharedFile.close();
         }
 
         // Read first sheet (xl/worksheets/sheet1.xml)
         QuaZipFile sheetFile(&zip);
-        if (sheetFile.open(QuaZip::mdUnzip, "xl/worksheets/sheet1.xml")) {
+        if (sheetFile.open(QIODevice::ReadOnly, "xl/worksheets/sheet1.xml")) {
             sheetXml = QString::fromUtf8(sheetFile.readAll());
             sheetFile.close();
         }
@@ -98,7 +98,7 @@ ExcelImporter::ImportResult ExcelImporter::import(const QString& filePath)
             QXmlStreamReader reader(sheetXml);
             while (!reader.atEnd()) {
                 if (reader.readNext() == QXmlStreamReader::StartElement) {
-                    QStringRef name = reader.name();
+                    QStringView name = reader.name();
                     if (name == "c") {
                         QString ref = reader.attributes().value("r").toString();
                         // Extract column letter from ref like "A1", "B2"
