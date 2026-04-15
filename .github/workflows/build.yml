@@ -77,18 +77,15 @@ jobs:
       - name: Bundle MinGW runtime DLLs
         shell: msys2 {0}
         run: |
-          mingwBin="C:/msys64/mingw64/bin"
-          deployDir="build/bin"
-          # Copy known MinGW runtime DLLs needed by GCC-compiled executables
-          for dll in libgcc_s_seh-1.dll libstdc++-6.dll libwinpthread-1.dll; do
-            if [ -f "$mingwBin/$dll" ]; then
-              cp "$mingwBin/$dll" "$deployDir/" && echo "Copied: $dll"
-            else
-              echo "Not found: $dll"
-            fi
-          done
-          echo "---MinGW DLLs in deploy dir---"
-          ls -la build/bin/*.dll 2>/dev/null | grep -iE 'gcc|stdc|winpthread'
+          # Find where MinGW DLLs actually live in this environment
+          echo "=== Finding MinGW DLLs ==="
+          find /mingw64 /usr -name "libgcc*.dll" -o -name "libstdc++*.dll" -o -name "libwinpthread*.dll" 2>/dev/null | head -30
+          echo "=== PATH ==="
+          echo "$PATH"
+          echo "=== /mingw64/bin contents ==="
+          ls -la /mingw64/bin/*.dll 2>/dev/null | head -20
+          echo "=== /usr/bin/*.dll ==="
+          ls -la /usr/bin/*.dll 2>/dev/null | grep -iE 'gcc|stdc|winpthread' | head -20
 
       - name: Upload artifact
         uses: actions/upload-artifact@v4
