@@ -62,7 +62,7 @@ jobs:
       - name: CMake configure
         shell: msys2 {0}
         run: |
-          cmake -B build -G Ninja -DCMAKE_BUILD_TYPE=Release
+          cmake -B build -G Ninja -DCMAKE_BUILD_TYPE=Release -DCMAKE_EXE_LINKER_FLAGS="-static-libgcc -static-libstdc++"
 
       - name: Build
         shell: msys2 {0}
@@ -75,17 +75,8 @@ jobs:
           windeployqt build/bin/pingplusplus.exe --no-translations --no-compiler-runtime --no-opengl-sw
 
       - name: Bundle MinGW runtime DLLs
-        shell: msys2 {0}
         run: |
-          # Find where MinGW DLLs actually live in this environment
-          echo "=== Finding MinGW DLLs ==="
-          find /mingw64 /usr -name "libgcc*.dll" -o -name "libstdc++*.dll" -o -name "libwinpthread*.dll" 2>/dev/null | head -30
-          echo "=== PATH ==="
-          echo "$PATH"
-          echo "=== /mingw64/bin contents ==="
-          ls -la /mingw64/bin/*.dll 2>/dev/null | head -20
-          echo "=== /usr/bin/*.dll ==="
-          ls -la /usr/bin/*.dll 2>/dev/null | grep -iE 'gcc|stdc|winpthread' | head -20
+          echo "Static linking enabled - no runtime DLLs needed"
 
       - name: Upload artifact
         uses: actions/upload-artifact@v4
