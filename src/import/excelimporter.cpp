@@ -7,9 +7,9 @@
 #include <QDir>
 #include <QDebug>
 #include <QBuffer>
-#include <QuaZip-Qt6-1.4/quazip/quazip.h>
-#include <QuaZip-Qt6-1.4/quazip/quazipfile.h>
-#include <QuaZip-Qt6-1.4/quazip/quazipdir.h>
+#include <quazip/quazip.h>
+#include <quazip/quazipfile.h>
+#include <quazip/quazipdir.h>
 
 ExcelImporter::ExcelImporter(QObject* parent)
     : QObject(parent)
