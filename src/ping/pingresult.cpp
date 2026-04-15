@@ -28,6 +28,7 @@ QVariant PingResult::toVariant() const
     map[QStringLiteral("originalInput")] = originalInput;
     map[QStringLiteral("targetIp")]      = targetIp;
     map[QStringLiteral("resolvedDomain")]= resolvedDomain;
+    map[QStringLiteral("hostname")]= hostname;
     map[QStringLiteral("sent")]          = sent;
     map[QStringLiteral("received")]      = received;
     map[QStringLiteral("lost")]         = lost;
@@ -52,6 +53,7 @@ PingResult PingResult::fromVariant(const QVariant& v)
     result.originalInput  = map.value(QStringLiteral("originalInput")).toString();
     result.targetIp       = map.value(QStringLiteral("targetIp")).toString();
     result.resolvedDomain= map.value(QStringLiteral("resolvedDomain")).toString();
+    result.hostname      = map.value(QStringLiteral("hostname")).toString();
     result.sent          = map.value(QStringLiteral("sent"), 0).toInt();
     result.received      = map.value(QStringLiteral("received"), 0).toInt();
     result.lost          = map.value(QStringLiteral("lost"), 0).toInt();

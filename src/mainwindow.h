@@ -26,9 +26,12 @@
 #include <QMessageBox>
 #include <QApplication>
 #include <QStyleFactory>
+#include <QVector>
+#include <QSet>
 
 class PingEngine;
 class ResultTableModel;
+struct PingResult;
 
 class MainWindow : public QMainWindow
 {
@@ -68,6 +71,11 @@ private slots:
     void onSettings();
     void onUpdateTable();
     void onExtractIps();
+    void onExtractIpsFromInput();
+    void onPaste();
+    void importFile(const QString& filePath);
+    void saveInputToConfig();
+    void loadInputFromConfig();
 
 private:
     void setupUi();
@@ -98,6 +106,8 @@ private:
         QPushButton *btnExport = nullptr;
         QPushButton *btnInsertResults = nullptr;
         QPushButton *btnExtractIps = nullptr;
+        QPushButton *btnExtractIpsFromInput = nullptr;
+        QPushButton *btnPaste = nullptr;
         QPushButton *btnSettings = nullptr;
         QPushButton *btnAbout = nullptr;
         QPushButton *btnToggleTheme = nullptr;
@@ -143,6 +153,7 @@ private:
     int m_onlineCount = 0;
     int m_offlineCount = 0;
     int m_totalTargets = 0;
+    bool m_inputFromExcel = false;
 
     // Configuration defaults
     static constexpr int DEFAULT_TIMEOUT_MS = 3000;

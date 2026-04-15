@@ -124,3 +124,65 @@ void ConfigManager::setLastAddresses(const QStringList& addresses) {
 QString ConfigManager::configFilePath() const {
     return m_settings->fileName();
 }
+
+QMap<QString, bool> ConfigManager::columnVisibility() const {
+    QMap<QString, bool> result;
+    // Default all columns visible
+    QStringList keys = {
+        QStringLiteral("col_num"),
+        QStringLiteral("col_status"),
+        QStringLiteral("col_target"),
+        QStringLiteral("col_hostname"),
+        QStringLiteral("col_ip"),
+        QStringLiteral("col_sent"),
+        QStringLiteral("col_received"),
+        QStringLiteral("col_loss"),
+        QStringLiteral("col_minrtt"),
+        QStringLiteral("col_maxrtt"),
+        QStringLiteral("col_avgrtt"),
+        QStringLiteral("col_lastrtt"),
+        QStringLiteral("col_elapsed")
+    };
+    for (const QString &key : keys) {
+        result[key] = m_settings->value("visibility/" + key, true).toBool();
+    }
+    return result;
+}
+
+void ConfigManager::setColumnVisibility(const QMap<QString, bool>& visibility) {
+    for (auto it = visibility.begin(); it != visibility.end(); ++it) {
+        m_settings->setValue("visibility/" + it.key(), it.value());
+    }
+    emit configChanged();
+}
+
+QMap<QString, bool> ConfigManager::exportFields() const {
+    QMap<QString, bool> result;
+    // Default all fields exported
+    QStringList keys = {
+        QStringLiteral("exp_num"),
+        QStringLiteral("exp_status"),
+        QStringLiteral("exp_target"),
+        QStringLiteral("exp_hostname"),
+        QStringLiteral("exp_ip"),
+        QStringLiteral("exp_sent"),
+        QStringLiteral("exp_received"),
+        QStringLiteral("exp_loss"),
+        QStringLiteral("exp_minrtt"),
+        QStringLiteral("exp_maxrtt"),
+        QStringLiteral("exp_avgrtt"),
+        QStringLiteral("exp_lastrtt"),
+        QStringLiteral("exp_elapsed")
+    };
+    for (const QString &key : keys) {
+        result[key] = m_settings->value("export/" + key, true).toBool();
+    }
+    return result;
+}
+
+void ConfigManager::setExportFields(const QMap<QString, bool>& fields) {
+    for (auto it = fields.begin(); it != fields.end(); ++it) {
+        m_settings->setValue("export/" + it.key(), it.value());
+    }
+    emit configChanged();
+}

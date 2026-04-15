@@ -1,7 +1,9 @@
 #pragma once
 #include <QObject>
-#include <QString>
 #include <QSettings>
+#include <QString>
+#include <QMap>
+#include <QStringList>
 #include <memory>
 
 class ConfigManager : public QObject {
@@ -18,6 +20,15 @@ public:
     bool rememberAddresses() const; void setRememberAddresses(bool remember);
     QStringList lastAddresses() const; void setLastAddresses(const QStringList& addresses);
     QString configFilePath() const;
+
+    // Column visibility settings
+    QMap<QString, bool> columnVisibility() const;
+    void setColumnVisibility(const QMap<QString, bool>& visibility);
+
+    // Export field settings
+    QMap<QString, bool> exportFields() const;
+    void setExportFields(const QMap<QString, bool>& fields);
+
 signals:
     void configChanged();
 private:

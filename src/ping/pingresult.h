@@ -7,6 +7,7 @@ struct PingResult {
     QString originalInput;   // raw user input (IP, CIDR, or domain)
     QString targetIp;        // resolved IPv4 address string, or original if IP input
     QString resolvedDomain;  // if input was a domain, the domain name
+    QString hostname;        // reverse DNS lookup result
     int sent = 0;
     int received = 0;
     int lost = 0;

@@ -40,10 +40,20 @@ MainWindow::MainWindow(QWidget *parent)
     , m_onlineCount(0)
     , m_offlineCount(0)
     , m_totalTargets(0)
+    , m_inputFromExcel(false)
 {
     setupUi();
     createConnections();
     setAcceptDrops(true);
+
+    // Load saved input from config
+    loadInputFromConfig();
+
+    // Set focus to input area and select all if has content
+    ui.textInput->setFocus();
+    if (!ui.textInput->toPlainText().isEmpty()) {
+        QTimer::singleShot(0, ui.textInput, &QTextEdit::selectAll);
+    }
 }
 
 MainWindow::~MainWindow() = default;
@@ -78,13 +88,16 @@ void MainWindow::setupToolbar()
     ui.btnClear      = new QPushButton(QStringLiteral("清除"));
     ui.btnImport     = new QPushButton(QStringLiteral("导入"));
     ui.btnExport     = new QPushButton(QStringLiteral("导出"));
-    ui.btnInsertResults = new QPushButton(QStringLiteral("插入结果"));
+    ui.btnInsertResults = new QPushButton(QStringLiteral("插入源表"));
     ui.btnExtractIps    = new QPushButton(QStringLiteral("提取IP"));
+    ui.btnExtractIpsFromInput = new QPushButton(QStringLiteral("提取IP(输入)"));
+    ui.btnPaste      = new QPushButton(QStringLiteral("粘贴"));
     ui.btnSettings   = new QPushButton(QStringLiteral("设置"));
     ui.btnAbout      = new QPushButton(QStringLiteral("关于"));
     ui.btnToggleTheme = new QPushButton(QStringLiteral("切换主题"));
 
     ui.btnStop->setEnabled(false);
+    ui.btnInsertResults->setVisible(false);
 
     ui.toolbar->addWidget(ui.btnStart);
     ui.toolbar->addWidget(ui.btnStop);
@@ -93,7 +106,10 @@ void MainWindow::setupToolbar()
     ui.toolbar->addWidget(ui.btnImport);
     ui.toolbar->addWidget(ui.btnExport);
     ui.toolbar->addWidget(ui.btnInsertResults);
+    ui.toolbar->addSeparator();
     ui.toolbar->addWidget(ui.btnExtractIps);
+    ui.toolbar->addWidget(ui.btnExtractIpsFromInput);
+    ui.toolbar->addWidget(ui.btnPaste);
     ui.toolbar->addSeparator();
     ui.toolbar->addWidget(ui.btnSettings);
     ui.toolbar->addWidget(ui.btnAbout);
@@ -154,6 +170,7 @@ void MainWindow::setupTableView()
     ui.tableView->setColumnWidth(ResultTableModel::ColNum,       50);
     ui.tableView->setColumnWidth(ResultTableModel::ColStatus,    80);
     ui.tableView->setColumnWidth(ResultTableModel::ColTarget,   150);
+    ui.tableView->setColumnWidth(ResultTableModel::ColHostname, 150);
     ui.tableView->setColumnWidth(ResultTableModel::ColIpAddress,150);
     ui.tableView->setColumnWidth(ResultTableModel::ColSent,      60);
     ui.tableView->setColumnWidth(ResultTableModel::ColReceived,  70);
@@ -216,11 +233,18 @@ void MainWindow::createConnections()
     // Filter
     connect(ui.editFilter, &QLineEdit::textChanged, this, &MainWindow::onFilterChanged);
 
-    // Extract IP
+    // Extract IP buttons
     connect(ui.btnExtractIps, &QPushButton::clicked, this, &MainWindow::onExtractIps);
+    connect(ui.btnExtractIpsFromInput, &QPushButton::clicked, this, &MainWindow::onExtractIpsFromInput);
+
+    // Paste button
+    connect(ui.btnPaste, &QPushButton::clicked, this, &MainWindow::onPaste);
 
     // Refresh timer
     connect(m_refreshTimer, &QTimer::timeout, this, &MainWindow::onRefreshTimer);
+
+    // Save input when text changes (with debounce via timer)
+    connect(ui.textInput, &QTextEdit::textChanged, this, &MainWindow::saveInputToConfig);
 }
 
 void MainWindow::onStart()
@@ -231,6 +255,7 @@ void MainWindow::onStart()
         return;
     }
 
+    // Extract valid IPs from mixed input (without modifying input box)
     QStringList targets = parseInput(input);
     if (targets.isEmpty()) {
         showError(QStringLiteral("错误"), QStringLiteral("未能解析有效的目标地址"));
@@ -244,14 +269,26 @@ void MainWindow::onStart()
     m_pingEngine->setMaxConcurrent(cfg.maxConcurrent());
     m_pingEngine->setContinuousMode(cfg.continuousMode());
 
-    m_pingEngine->setTargets(targets);
-    m_pingEngine->start();
+    // If running, this becomes a "Refresh" - just update with new targets
+    if (m_isRunning) {
+        // Keep existing results, just add/update targets
+        QStringList currentTargets = targets;
+        m_pingEngine->setTargets(currentTargets);
+        // Engine will handle updating existing results
+    } else {
+        m_pingEngine->setTargets(targets);
+        m_pingEngine->start();
+        m_elapsedTimer->restart();
+        m_refreshTimer->start(500);
+    }
 
-    m_elapsedTimer->restart();
-    m_refreshTimer->start(500);
-    setUiEnabled(false);
+    // Input stays editable, only start button changes to Refresh
     m_isRunning = true;
-
+    ui.btnStart->setText(QStringLiteral("刷新"));
+    ui.btnStop->setEnabled(true);
+    ui.btnInsertResults->setVisible(m_inputFromExcel && m_isRunning);
+    ui.btnImport->setEnabled(true);
+    ui.btnExport->setEnabled(true);
     ui.labelStatus->setText(QStringLiteral("正在扫描..."));
 }
 
@@ -261,6 +298,9 @@ void MainWindow::onStop()
     m_refreshTimer->stop();
     setUiEnabled(true);
     m_isRunning = false;
+    ui.btnStart->setText(QStringLiteral("开始"));
+    ui.btnStop->setEnabled(false);
+    ui.btnInsertResults->setVisible(false);
     ui.labelStatus->setText(QStringLiteral("已停止"));
 }
 
@@ -284,11 +324,36 @@ void MainWindow::onImport()
         this,
         QStringLiteral("导入文件"),
         QString(),
-        QStringLiteral("Excel/CSV Files (*.xlsx *.xls *.csv);;All Files (*)"));
+        QStringLiteral("Excel/CSV/TXT Files (*.xlsx *.xls *.csv *.txt);;All Files (*)"));
     if (filePath.isEmpty()) return;
 
+    importFile(filePath);
+}
+
+void MainWindow::importFile(const QString& filePath)
+{
+    QFileInfo fileInfo(filePath);
+    QString suffix = fileInfo.suffix().toLower();
+
+    int selectedColumn = -1;
+
+    // For Excel files, detect and let user select column if needed
+    if (suffix == "xlsx") {
+        QList<ExcelImporter::ColumnInfo> candidates = ExcelImporter::detectIpColumns(filePath);
+        if (candidates.size() > 1) {
+            selectedColumn = ExcelImporter::selectColumn(this, candidates);
+            if (selectedColumn < 0) {
+                // User cancelled
+                return;
+            }
+        } else if (candidates.size() == 1) {
+            selectedColumn = candidates.first().columnIndex;
+        }
+        // If no candidates found, will fall back to scanning all columns
+    }
+
     ExcelImporter importer;
-    auto result = importer.import(filePath);
+    auto result = importer.import(filePath, selectedColumn);
 
     if (!result.error.isEmpty()) {
         showError(QStringLiteral("导入错误"), result.error);
@@ -303,6 +368,8 @@ void MainWindow::onImport()
     }
 
     ui.textInput->setPlainText(result.addresses.join(QStringLiteral("\n")));
+    m_inputFromExcel = true;
+    ui.btnInsertResults->setVisible(m_inputFromExcel && m_isRunning);
     showInfo(QStringLiteral("导入结果"),
         QStringLiteral("共 %1 行，有效地址 %2 个")
             .arg(result.totalRows).arg(result.validRows));
@@ -505,6 +572,65 @@ void MainWindow::onExtractIps()
         QStringLiteral("已复制 %1 个在线IP到剪贴板").arg(onlineIps.size()));
 }
 
+void MainWindow::onExtractIpsFromInput()
+{
+    // Extract IPs from input text and replace input with pure IP list
+    QString input = ui.textInput->toPlainText().trimmed();
+    if (input.isEmpty()) {
+        showInfo(QStringLiteral("提取IP"), QStringLiteral("输入框为空"));
+        return;
+    }
+
+    QStringList targets = parseInput(input);
+    if (targets.isEmpty()) {
+        showInfo(QStringLiteral("提取IP"), QStringLiteral("未能从输入中提取有效IP"));
+        return;
+    }
+
+    // Replace input with extracted IPs
+    ui.textInput->setPlainText(targets.join(QStringLiteral("\n")));
+    m_inputFromExcel = false;
+    showInfo(QStringLiteral("提取IP"),
+        QStringLiteral("已提取 %1 个有效地址").arg(targets.size()));
+}
+
+void MainWindow::onPaste()
+{
+    QClipboard *clipboard = QApplication::clipboard();
+    QString text = clipboard->text();
+    if (text.isEmpty()) {
+        showInfo(QStringLiteral("粘贴"), QStringLiteral("剪贴板为空"));
+        return;
+    }
+
+    // Insert at cursor or replace selection
+    ui.textInput->insertPlainText(text);
+    m_inputFromExcel = false;  // Manual edit, not from Excel
+}
+
+void MainWindow::saveInputToConfig()
+{
+    ConfigManager &cfg = ConfigManager::instance();
+    if (cfg.rememberAddresses()) {
+        QString input = ui.textInput->toPlainText().trimmed();
+        if (!input.isEmpty()) {
+            QStringList lines = input.split(QRegularExpression(QStringLiteral("[\\n\\r]")), Qt::SkipEmptyParts);
+            cfg.setLastAddresses(lines);
+        }
+    }
+}
+
+void MainWindow::loadInputFromConfig()
+{
+    ConfigManager &cfg = ConfigManager::instance();
+    if (cfg.rememberAddresses()) {
+        QStringList lastAddrs = cfg.lastAddresses();
+        if (!lastAddrs.isEmpty()) {
+            ui.textInput->setPlainText(lastAddrs.join(QStringLiteral("\n")));
+        }
+    }
+}
+
 void MainWindow::onToggleTheme()
 {
     if (m_currentTheme == Theme::Light) {
@@ -575,12 +701,15 @@ void MainWindow::updateCounts(int online, int offline)
 
 void MainWindow::setUiEnabled(bool enabled)
 {
-    ui.btnStart->setEnabled(enabled);
+    ui.btnStart->setEnabled(enabled && !m_isRunning);
     ui.btnStop->setEnabled(!enabled && m_isRunning);
-    ui.textInput->setEnabled(enabled);
-    ui.btnImport->setEnabled(enabled);
-    ui.btnExport->setEnabled(enabled);
-    ui.btnInsertResults->setEnabled(enabled);
+    // Input stays editable even when running
+    // ui.textInput->setEnabled(enabled);  // Removed: input is always editable
+    ui.btnImport->setEnabled(true);  // Always enabled during run
+    ui.btnExport->setEnabled(true);  // Always enabled during run
+    if (m_inputFromExcel) {
+        ui.btnInsertResults->setVisible(m_isRunning);
+    }
     ui.btnClear->setEnabled(enabled);
 }
 
@@ -625,7 +754,8 @@ void MainWindow::dragEnterEvent(QDragEnterEvent *event)
             QString filePath = urls.first().toLocalFile();
             if (filePath.endsWith(QStringLiteral(".xlsx")) ||
                 filePath.endsWith(QStringLiteral(".csv")) ||
-                filePath.endsWith(QStringLiteral(".xls"))) {
+                filePath.endsWith(QStringLiteral(".xls")) ||
+                filePath.endsWith(QStringLiteral(".txt"))) {
                 event->acceptProposedAction();
                 return;
             }
@@ -642,22 +772,9 @@ void MainWindow::dropEvent(QDropEvent *event)
             QString filePath = urls.first().toLocalFile();
             if (filePath.endsWith(QStringLiteral(".xlsx")) ||
                 filePath.endsWith(QStringLiteral(".csv")) ||
-                filePath.endsWith(QStringLiteral(".xls"))) {
-
-                ExcelImporter importer;
-                auto result = importer.import(filePath);
-
-                if (!result.error.isEmpty()) {
-                    showError(QStringLiteral("导入错误"), result.error);
-                    return;
-                }
-
-                if (!result.addresses.isEmpty()) {
-                    ui.textInput->setPlainText(result.addresses.join(QStringLiteral("\n")));
-                }
-
-                showInfo(QStringLiteral("导入成功"),
-                    QStringLiteral("导入 %1 个有效地址").arg(result.validRows));
+                filePath.endsWith(QStringLiteral(".xls")) ||
+                filePath.endsWith(QStringLiteral(".txt"))) {
+                importFile(filePath);
                 event->acceptProposedAction();
             }
         }

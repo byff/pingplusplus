@@ -79,12 +79,25 @@ set(HEADERS
     src/settingsdialog.h
 )
 
-# Windows: GUI subsystem (no console)
+# Icon for the application
+set(APP_ICON "${CMAKE_SOURCE_DIR}/assets/icon.ico")
+set(APP_ICON_PNG "${CMAKE_SOURCE_DIR}/assets/rping.png")
+
+# Windows: GUI subsystem (no console) and set icon
 if(WIN32)
     add_executable(${PROJECT_NAME} WIN32 ${SOURCES} ${HEADERS})
     set_target_properties(${PROJECT_NAME} PROPERTIES WIN32_EXECUTABLE TRUE)
+    if(EXISTS ${APP_ICON})
+        set_target_properties(${PROJECT_NAME} PROPERTIES WIN32_EXECUTABLE TRUE
+            IMPORTED_RC "${CMAKE_SOURCE_DIR}/assets/icon.rc")
+    endif()
 else()
     add_executable(${PROJECT_NAME} ${SOURCES} ${HEADERS})
+endif()
+
+# Set macOS/Linux icon
+if(APPLE)
+    set_target_properties(${PROJECT_NAME} PROPERTIES MACOSX_BUNDLE_ICON_FILE "rping.png")
 endif()
 
 # Link Qt

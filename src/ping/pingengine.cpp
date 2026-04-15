@@ -253,6 +253,10 @@ void PingEngine::onWorkerFinished(int index, bool success, qint64 rttUs) {
     if (success) {
         result.received++;
         result.isOnline = true;
+        // Perform reverse DNS lookup on first successful ping
+        if (result.hostname.isEmpty()) {
+            result.hostname = reverseDnsLookup(result.targetIp);
+        }
         if (rttUs >= 0) {
             if (result.minRttUs == 0 || rttUs < result.minRttUs) result.minRttUs = rttUs;
             if (rttUs > result.maxRttUs) result.maxRttUs = rttUs;
@@ -377,4 +381,26 @@ QStringList PingEngine::parseInput(const QString& input) {
     // Domain
     expandDomain(trimmed, result);
     return result;
+}
+
+QString PingEngine::reverseDnsLookup(const QString& ip) const {
+    if (ip.isEmpty()) return QString();
+
+#ifdef Q_OS_WIN
+    struct hostent* he = nullptr;
+    struct in_addr addr;
+    addr.s_addr = inet_addr(ip.toLatin1().constData());
+    if (addr.s_addr == INADDR_NONE) return QString();
+    he = gethostbyaddr(reinterpret_cast<const char*>(&addr), sizeof(addr), AF_INET);
+#else
+    struct hostent* he = nullptr;
+    struct in_addr addr;
+    addr.s_addr = inet_addr(ip.toLatin1().constData());
+    if (addr.s_addr == INADDR_NONE) return QString();
+    he = gethostbyaddr(reinterpret_cast<const char*>(&addr), sizeof(addr), AF_INET);
+#endif
+    if (he && he->h_name) {
+        return QString::fromLocal8Bit(he->h_name);
+    }
+    return QString();
 }

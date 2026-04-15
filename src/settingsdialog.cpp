@@ -7,15 +7,22 @@
 #include <QLabel>
 #include <QGroupBox>
 #include <QMessageBox>
+#include <QMap>
+#include <QDebug>
 
 SettingsDialog::SettingsDialog(QWidget *parent)
     : QDialog(parent)
 {
     setWindowTitle(QStringLiteral("设置"));
-    setMinimumWidth(400);
+    setMinimumWidth(450);
     setupUi();
+    loadSettings();
+}
 
-    // Load current values from ConfigManager
+SettingsDialog::~SettingsDialog() = default;
+
+void SettingsDialog::loadSettings()
+{
     ConfigManager &cfg = ConfigManager::instance();
     m_spinTimeout->setValue(cfg.timeoutMs());
     m_spinInterval->setValue(cfg.intervalMs());
@@ -29,9 +36,23 @@ SettingsDialog::SettingsDialog(QWidget *parent)
     if (theme == "light") m_comboTheme->setCurrentIndex(1);
     else if (theme == "dark") m_comboTheme->setCurrentIndex(2);
     else m_comboTheme->setCurrentIndex(0);
-}
 
-SettingsDialog::~SettingsDialog() = default;
+    // Load column visibility
+    QMap<QString, bool> colVis = cfg.columnVisibility();
+    for (auto it = m_columnCheckboxes.begin(); it != m_columnCheckboxes.end(); ++it) {
+        if (colVis.contains(it.key())) {
+            it.value()->setChecked(colVis.value(it.key()));
+        }
+    }
+
+    // Load export fields
+    QMap<QString, bool> expFields = cfg.exportFields();
+    for (auto it = m_exportFieldCheckboxes.begin(); it != m_exportFieldCheckboxes.end(); ++it) {
+        if (expFields.contains(it.key())) {
+            it.value()->setChecked(expFields.value(it.key()));
+        }
+    }
+}
 
 void SettingsDialog::setupUi()
 {
@@ -88,6 +109,110 @@ void SettingsDialog::setupUi()
 
     mainLayout->addWidget(uiGroup);
 
+    // Column visibility group
+    QGroupBox *colGroup = new QGroupBox(QStringLiteral("表格列显示"));
+    QGridLayout *colLayout = new QGridLayout(colGroup);
+
+    QStringList columns = {
+        QStringLiteral("#"),
+        QStringLiteral("状态"),
+        QStringLiteral("目标"),
+        QStringLiteral("主机名"),
+        QStringLiteral("IP地址"),
+        QStringLiteral("已发"),
+        QStringLiteral("已收"),
+        QStringLiteral("丢包率"),
+        QStringLiteral("最小时延"),
+        QStringLiteral("最大时延"),
+        QStringLiteral("平均时延"),
+        QStringLiteral("最后时延"),
+        QStringLiteral("耗时")
+    };
+
+    QStringList columnKeys = {
+        QStringLiteral("col_num"),
+        QStringLiteral("col_status"),
+        QStringLiteral("col_target"),
+        QStringLiteral("col_hostname"),
+        QStringLiteral("col_ip"),
+        QStringLiteral("col_sent"),
+        QStringLiteral("col_received"),
+        QStringLiteral("col_loss"),
+        QStringLiteral("col_minrtt"),
+        QStringLiteral("col_maxrtt"),
+        QStringLiteral("col_avgrtt"),
+        QStringLiteral("col_lastrtt"),
+        QStringLiteral("col_elapsed")
+    };
+
+    int col = 0;
+    int row = 0;
+    for (int i = 0; i < columns.size() && i < columnKeys.size(); ++i) {
+        QCheckBox *cb = new QCheckBox(columns[i]);
+        cb->setChecked(true);
+        m_columnCheckboxes[columnKeys[i]] = cb;
+        colLayout->addWidget(cb, row, col);
+        col++;
+        if (col > 3) {
+            col = 0;
+            row++;
+        }
+    }
+
+    mainLayout->addWidget(colGroup);
+
+    // Export fields group
+    QGroupBox *exportGroup = new QGroupBox(QStringLiteral("导出字段配置"));
+    QGridLayout *exportLayout = new QGridLayout(exportGroup);
+
+    QStringList exportFieldNames = {
+        QStringLiteral("#"),
+        QStringLiteral("状态"),
+        QStringLiteral("目标"),
+        QStringLiteral("主机名"),
+        QStringLiteral("IP地址"),
+        QStringLiteral("已发"),
+        QStringLiteral("已收"),
+        QStringLiteral("丢包率"),
+        QStringLiteral("最小时延"),
+        QStringLiteral("最大时延"),
+        QStringLiteral("平均时延"),
+        QStringLiteral("最后时延"),
+        QStringLiteral("耗时")
+    };
+
+    QStringList exportFieldKeys = {
+        QStringLiteral("exp_num"),
+        QStringLiteral("exp_status"),
+        QStringLiteral("exp_target"),
+        QStringLiteral("exp_hostname"),
+        QStringLiteral("exp_ip"),
+        QStringLiteral("exp_sent"),
+        QStringLiteral("exp_received"),
+        QStringLiteral("exp_loss"),
+        QStringLiteral("exp_minrtt"),
+        QStringLiteral("exp_maxrtt"),
+        QStringLiteral("exp_avgrtt"),
+        QStringLiteral("exp_lastrtt"),
+        QStringLiteral("exp_elapsed")
+    };
+
+    col = 0;
+    row = 0;
+    for (int i = 0; i < exportFieldNames.size() && i < exportFieldKeys.size(); ++i) {
+        QCheckBox *cb = new QCheckBox(exportFieldNames[i]);
+        cb->setChecked(true);
+        m_exportFieldCheckboxes[exportFieldKeys[i]] = cb;
+        exportLayout->addWidget(cb, row, col);
+        col++;
+        if (col > 3) {
+            col = 0;
+            row++;
+        }
+    }
+
+    mainLayout->addWidget(exportGroup);
+
     // Buttons
     QDialogButtonBox *buttons = new QDialogButtonBox(
         QDialogButtonBox::Ok | QDialogButtonBox::Apply | QDialogButtonBox::Cancel);
@@ -118,6 +243,20 @@ void SettingsDialog::onApply()
     }
     cfg.setTheme(theme);
 
+    // Save column visibility
+    QMap<QString, bool> colVis;
+    for (auto it = m_columnCheckboxes.begin(); it != m_columnCheckboxes.end(); ++it) {
+        colVis[it.key()] = it.value()->isChecked();
+    }
+    cfg.setColumnVisibility(colVis);
+
+    // Save export fields
+    QMap<QString, bool> expFields;
+    for (auto it = m_exportFieldCheckboxes.begin(); it != m_exportFieldCheckboxes.end(); ++it) {
+        expFields[it.key()] = it.value()->isChecked();
+    }
+    cfg.setExportFields(expFields);
+
     emit configApplied();
     emit themeChangedFromDialog(theme);
 }
@@ -136,3 +275,39 @@ int SettingsDialog::refreshIntervalMs() const { return m_spinRefresh->value(); }
 bool SettingsDialog::continuousMode() const { return m_checkContinuous->isChecked(); }
 QString SettingsDialog::theme() const { return m_comboTheme->currentText(); }
 bool SettingsDialog::rememberAddresses() const { return m_checkRemember->isChecked(); }
+
+QMap<QString, bool> SettingsDialog::columnVisibility() const
+{
+    QMap<QString, bool> result;
+    for (auto it = m_columnCheckboxes.begin(); it != m_columnCheckboxes.end(); ++it) {
+        result[it.key()] = it.value()->isChecked();
+    }
+    return result;
+}
+
+void SettingsDialog::setColumnVisibility(const QMap<QString, bool>& visibility)
+{
+    for (auto it = visibility.begin(); it != visibility.end(); ++it) {
+        if (m_columnCheckboxes.contains(it.key())) {
+            m_columnCheckboxes[it.key()]->setChecked(it.value());
+        }
+    }
+}
+
+QMap<QString, bool> SettingsDialog::exportFields() const
+{
+    QMap<QString, bool> result;
+    for (auto it = m_exportFieldCheckboxes.begin(); it != m_exportFieldCheckboxes.end(); ++it) {
+        result[it.key()] = it.value()->isChecked();
+    }
+    return result;
+}
+
+void SettingsDialog::setExportFields(const QMap<QString, bool>& fields)
+{
+    for (auto it = fields.begin(); it != fields.end(); ++it) {
+        if (m_exportFieldCheckboxes.contains(it.key())) {
+            m_exportFieldCheckboxes[it.key()]->setChecked(it.value());
+        }
+    }
+}

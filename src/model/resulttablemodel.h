@@ -9,7 +9,7 @@ enum SortOrder { DefaultOrder, Ascending, Descending };
 class ResultTableModel : public QAbstractTableModel {
     Q_OBJECT
 public:
-    enum Columns { ColNum=0, ColStatus, ColTarget, ColIpAddress, ColSent, ColReceived, ColLossRate, ColMinRtt, ColMaxRtt, ColAvgRtt, ColLastRtt, ColElapsed, ColCount };
+    enum Columns { ColNum=0, ColStatus, ColTarget, ColHostname, ColIpAddress, ColSent, ColReceived, ColLossRate, ColMinRtt, ColMaxRtt, ColAvgRtt, ColLastRtt, ColElapsed, ColCount };
     explicit ResultTableModel(QObject* parent = nullptr);
     int rowCount(const QModelIndex& parent = QModelIndex()) const override;
     int columnCount(const QModelIndex& parent = QModelIndex()) const override;

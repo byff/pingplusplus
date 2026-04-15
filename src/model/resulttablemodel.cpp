@@ -49,6 +49,8 @@ QVariant ResultTableModel::data(const QModelIndex& index, int role) const
             return result.statusText();
         case ColTarget:
             return result.originalInput;
+        case ColHostname:
+            return result.hostname;
         case ColIpAddress:
             if (!result.resolvedDomain.isEmpty() && result.resolvedDomain != result.targetIp) {
                 return QStringLiteral("%1 → %2").arg(result.resolvedDomain).arg(result.targetIp);
@@ -76,17 +78,33 @@ QVariant ResultTableModel::data(const QModelIndex& index, int role) const
     }
 
     if (role == Qt::ForegroundRole) {
+        // Red for loss rate > 5%
         if (index.column() == ColLossRate) {
             if (result.lossRatePercent() > 5.0) {
                 return QColor(Qt::red);
             }
         }
+        // Red for status offline or DNS failed
         if (index.column() == ColStatus) {
             if (result.statusText() == QStringLiteral("离线") || result.dnsFailed) {
                 return QColor(Qt::red);
             }
             if (result.statusText() == QStringLiteral("在线")) {
                 return QColor(Qt::darkGreen);
+            }
+        }
+        // Red for RTT > 100ms in any RTT column
+        if (index.column() == ColMinRtt || index.column() == ColMaxRtt ||
+            index.column() == ColAvgRtt || index.column() == ColLastRtt) {
+            double rttMs = 0;
+            switch (index.column()) {
+                case ColMinRtt: rttMs = result.minRttMs(); break;
+                case ColMaxRtt: rttMs = result.maxRttMs(); break;
+                case ColAvgRtt: rttMs = result.avgRttMs(); break;
+                case ColLastRtt: rttMs = result.lastRttMs(); break;
+            }
+            if (rttMs > 100.0) {
+                return QColor(Qt::red);
             }
         }
     }
@@ -108,6 +126,7 @@ QVariant ResultTableModel::headerData(int section, Qt::Orientation orientation, 
         QStringLiteral("#"),
         QStringLiteral("状态"),
         QStringLiteral("目标"),
+        QStringLiteral("主机名"),
         QStringLiteral("IP 地址"),
         QStringLiteral("已发"),
         QStringLiteral("已收"),
@@ -187,6 +206,8 @@ void ResultTableModel::sortByColumn(int column, SortOrder order)
             }
             case ColTarget:
                 return ascending ? (a.originalInput < b.originalInput) : (a.originalInput > b.originalInput);
+            case ColHostname:
+                return ascending ? (a.hostname < b.hostname) : (a.hostname > b.hostname);
             case ColIpAddress:
                 return ascending ? (a.targetIp < b.targetIp) : (a.targetIp > b.targetIp);
             case ColSent:
