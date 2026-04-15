@@ -21,7 +21,7 @@ jobs:
           C:/vcpkg/bootstrap-vcpkg.bat
 
       - name: Install dependencies
-        run: C:/vcpkg/vcpkg install qt6:x64-windows xlsxwriter quazip:x64-windows
+        run: C:/vcpkg/vcpkg install qtbase:x64-windows libxlsxwriter quazip
 
       - name: CMake configure
         run: cmake -B build -DCMAKE_BUILD_TYPE=Release -DCMAKE_TOOLCHAIN_FILE=C:/vcpkg/scripts/buildsystems/vcpkg.cmake
@@ -48,7 +48,7 @@ jobs:
 
       - name: Install dependencies
         run: |
-          ~/vcpkg/vcpkg install qt6-base:x64-linux xlsxwriter quazip5:x64-linux
+          ~/vcpkg/vcpkg install qtbase:x64-linux libxlsxwriter quazip
 
       - name: CMake configure
         run: |
