@@ -82,7 +82,7 @@ ExcelImporter::ImportResult ExcelImporter::import(const QString& filePath)
         {
             QXmlStreamReader reader(sharedStringsXml);
             while (!reader.atEnd()) {
-                if (reader.readNext() == QXmlStreamReader::StartElement && reader.name() == "t") {
+                if (reader.readNext() == QXmlStreamReader::StartElement && reader.name().toString() == "t") {
                     sharedStrings.append(reader.readElementText());
                 }
             }
@@ -99,7 +99,7 @@ ExcelImporter::ImportResult ExcelImporter::import(const QString& filePath)
             while (!reader.atEnd()) {
                 if (reader.readNext() == QXmlStreamReader::StartElement) {
                     QStringView name = reader.name();
-                    if (name == "c") {
+                    if (name.toString() == "c") {
                         QString ref = reader.attributes().value("r").toString();
                         // Extract column letter from ref like "A1", "B2"
                         QString colStr = ref;
@@ -118,7 +118,7 @@ ExcelImporter::ImportResult ExcelImporter::import(const QString& filePath)
                         QString value;
 
                         reader.readNext();
-                        if (reader.name() == "v") {
+                        if (reader.name().toString() == "v") {
                             value = reader.readElementText();
                         }
 
@@ -136,7 +136,7 @@ ExcelImporter::ImportResult ExcelImporter::import(const QString& filePath)
                         }
                         ++currentCol;
                         maxCol = qMax(maxCol, currentCol);
-                    } else if (name == "row") {
+                    } else if (name.toString() == "row") {
                         if (!currentRow.isEmpty()) {
                             // Pad row to maxCol
                             while (currentRow.size() < maxCol) currentRow.append("");

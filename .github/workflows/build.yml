@@ -57,6 +57,7 @@ jobs:
             mingw-w64-x86_64-quazip-qt6
             mingw-w64-x86_64-cmake
             mingw-w64-x86_64-ninja
+            mingw-w64-x86_64-gcc
 
       - name: CMake configure
         shell: msys2 {0}
