@@ -62,7 +62,8 @@ jobs:
       - name: CMake configure
         shell: msys2 {0}
         run: |
-          cmake -B build -G Ninja -DCMAKE_BUILD_TYPE=Release -DCMAKE_EXE_LINKER_FLAGS="-static-libgcc -static-libstdc++"
+          cmake -B build -G Ninja -DCMAKE_BUILD_TYPE=Release \
+            -DCMAKE_EXE_LINKER_FLAGS="-static-libgcc -static-libstdc++ -static -lpthread"
 
       - name: Build
         shell: msys2 {0}
@@ -74,21 +75,18 @@ jobs:
         run: |
           windeployqt build/bin/pingplusplus.exe --no-translations --no-compiler-runtime --no-opengl-sw
 
-      - name: Bundle native libs (libxlsxwriter, quazip)
+      - name: Bundle native libs (libxlsxwriter, quazip, mingw runtime)
         shell: msys2 {0}
         run: |
           mingwBin="/mingw64/bin"
           deployDir="build/bin"
-          # Copy third-party DLLs that windeployqt doesn't handle
-          for dll in libxlsxwriter.dll libquazip1-qt6.dll; do
+          for dll in libxlsxwriter.dll libquazip1-qt6.dll libgcc_s_seh-1.dll libstdc++-6.dll libwinpthread-1.dll; do
             if [ -f "$mingwBin/$dll" ]; then
               cp "$mingwBin/$dll" "$deployDir/" && echo "Copied: $dll"
-            else
-              echo "Not found: $dll"
             fi
           done
-          echo "---Third-party DLLs deployed---"
-          ls -la build/bin/lib*.dll
+          echo "---DLLs deployed---"
+          ls -la build/bin/lib*.dll 2>/dev/null
 
       - name: Upload artifact
         uses: actions/upload-artifact@v4
