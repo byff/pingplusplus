@@ -8,9 +8,6 @@ on:
       - 'v*'
   workflow_dispatch:
 
-env:
-  VCPKG_ROOT: ${{ github.workspace }}/vcpkg_installed
-
 jobs:
   windows:
     runs-on: windows-latest
@@ -18,20 +15,29 @@ jobs:
       - name: Checkout code
         uses: actions/checkout@v4
 
-      - name: Install dependencies via vcpkg
-        run: |
-          git clone --depth 1 https://github.com/microsoft/vcpkg.git C:/vcpkg
-          C:/vcpkg/bootstrap-vcpkg.bat -disableMetrics
-          C:/vcpkg/vcpkg install qtbase:x64-windows libxlsxwriter quazip --clean-build-deps
+      - name: Setup MSYS2
+        uses: msys2/setup-msys2@v2
+        with:
+          msystem: MINGW64
+          update: true
+          install: |
+            mingw-w64-x86_64-qt6-base
+            mingw-w64-x86_64-libxlsxwriter
+            mingw-w64-x86_64-quazip-qt6
+            mingw-w64-x86_64-cmake
+            mingw-w64-x86_64-ninja
 
       - name: CMake configure
+        shell: msys2 {0}
         run: |
-          cmake -B build -DCMAKE_BUILD_TYPE=Release ^
-            -DCMAKE_TOOLCHAIN_FILE=C:/vcpkg/scripts/buildsystems/vcpkg.cmake ^
-            -DVCPKG_TARGET_TRIPLET=x64-windows ^
-            -DVCPKG_INSTALLED_DIR=C:/vcpkg_installed
+          cmake -B build -G "Ninja Multi-Config" \
+            -DCMAKE_BUILD_TYPE=Release \
+            -DCMAKE_PREFIX_PATH=/mingw64 \
+            -DCMAKE_C_COMPILER=/mingw64/bin/gcc \
+            -DCMAKE_CXX_COMPILER=/mingw64/bin/g++
 
       - name: Build
+        shell: msys2 {0}
         run: cmake --build build --config Release
 
       - name: Upload artifact
