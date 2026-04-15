@@ -79,11 +79,12 @@ jobs:
         run: |
           mingwBin="C:/msys64/mingw64/bin"
           deployDir="build/bin"
-          # Use objdump to find all DLL dependencies from mingw64
-          for dll in $(objdump -p build/bin/pingplusplus.exe 2>/dev/null | grep 'DLL Name' | awk '{print $3}' | sort -u); do
-            src="$mingwBin/$dll"
-            if [ -f "$src" ]; then
-              cp "$src" "$deployDir/" && echo "Copied: $dll"
+          # Copy known MinGW runtime DLLs needed by GCC-compiled executables
+          for dll in libgcc_s_seh-1.dll libstdc++-6.dll libwinpthread-1.dll; do
+            if [ -f "$mingwBin/$dll" ]; then
+              cp "$mingwBin/$dll" "$deployDir/" && echo "Copied: $dll"
+            else
+              echo "Not found: $dll"
             fi
           done
           echo "---MinGW DLLs in deploy dir---"
