@@ -69,8 +69,44 @@ jobs:
         run: |
           cmake --build build --config Release
 
+      - name: Deploy Qt DLLs
+        shell: msys2 {0}
+        run: |
+          windeployqt build/bin/pingplusplus.exe --no-translations --no-compiler-runtime --no-opengl-sw
+
+      - name: Bundle MinGW runtime DLLs
+        shell: powershell
+        run: |
+          $mingwBin = "C:/msys64/mingw64/bin"
+          $deployDir = "build/bin"
+          $exePath = "$deployDir/pingplusplus.exe"
+          # Find all MinGW DLLs needed by the exe and its dependencies
+          $needed = @()
+          function Get-MinGwDeps($path) {
+            if (!(Test-Path $path)) { return }
+            $deps = & ldd $path 2>$null | Where-Object { $_ -match 'mingw' -and $_ -notmatch 'not found' }
+            foreach ($dep in $deps) {
+              $m = $dep -match '^\s+([^ ]+)\s+=>\s+([^ ]+).*$'
+              if ($m) {
+                $dll = [System.IO.Path]::GetFileName($Matches[1])
+                if ($dll -notin $needed -and (Test-Path "$mingwBin/$dll")) {
+                  $needed += $dll
+                  Get-MinGwDeps "$mingwBin/$dll"
+                }
+              }
+            }
+          }
+          Get-MinGwDeps $exePath
+          foreach ($dll in $needed) {
+            Copy-Item "$mingwBin/$dll" $deployDir -Force
+            Write-Host "Copied: $dll"
+          }
+          if ($needed.Count -eq 0) {
+            Write-Host "No MinGW DLLs found to copy"
+          }
+
       - name: Upload artifact
         uses: actions/upload-artifact@v4
         with:
           name: pingplusplus-windows-x64
-          path: build/bin/pingplusplus.exe
+          path: build/bin/
