@@ -24,20 +24,16 @@ jobs:
             mingw-w64-x86_64-qt6-base
             mingw-w64-x86_64-libxlsxwriter
             mingw-w64-x86_64-quazip-qt6
-            mingw-w64-x86_64-cmake
             mingw-w64-x86_64-ninja
+            mingw-w64-x86_64-cmake
 
       - name: CMake configure
-        shell: msys2 {0}
+        shell: bash
         run: |
-          cmake -B build -G "Ninja Multi-Config" \
-            -DCMAKE_BUILD_TYPE=Release \
-            -DCMAKE_PREFIX_PATH=/mingw64 \
-            -DCMAKE_C_COMPILER=/mingw64/bin/gcc \
-            -DCMAKE_CXX_COMPILER=/mingw64/bin/g++
+          cmake -B build -G Ninja -DCMAKE_BUILD_TYPE=Release
 
       - name: Build
-        shell: msys2 {0}
+        shell: bash
         run: cmake --build build --config Release
 
       - name: Upload artifact
@@ -55,11 +51,11 @@ jobs:
       - name: Install dependencies
         run: |
           sudo apt-get update
-          sudo apt-get install -y qt6-base-dev libquazip5-qt6-dev libxlsxwriter-dev
+          sudo apt-get install -y qt6-base-dev libquazip5-qt6-dev libxlsxwriter-dev cmake ninja-build
 
       - name: CMake configure
         run: |
-          cmake -B build -DCMAKE_BUILD_TYPE=Release
+          cmake -B build -G Ninja -DCMAKE_BUILD_TYPE=Release
 
       - name: Build
         run: cmake --build build --config Release
