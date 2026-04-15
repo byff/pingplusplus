@@ -74,9 +74,21 @@ jobs:
         run: |
           windeployqt build/bin/pingplusplus.exe --no-translations --no-compiler-runtime --no-opengl-sw
 
-      - name: Bundle MinGW runtime DLLs
+      - name: Bundle native libs (libxlsxwriter, libgcc, libstdc++)
+        shell: msys2 {0}
         run: |
-          echo "Static linking enabled - no runtime DLLs needed"
+          mingwBin="C:/msys64/mingw64/bin"
+          deployDir="build/bin"
+          # libxlsxwriter is not a Qt plugin - copy it manually
+          for dll in libxlsxwriter.dll libgcc_s_seh-1.dll libstdc++-6.dll libwinpthread-1.dll; do
+            if [ -f "$mingwBin/$dll" ]; then
+              cp "$mingwBin/$dll" "$deployDir/" && echo "Copied: $dll"
+            else
+              echo "Not found: $dll"
+            fi
+          done
+          echo "---DLLs in deploy dir---"
+          ls -la build/bin/*.dll | grep -v Qt | grep -v D3D
 
       - name: Upload artifact
         uses: actions/upload-artifact@v4
