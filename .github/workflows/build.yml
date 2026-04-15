@@ -41,16 +41,15 @@ jobs:
       - name: Checkout code
         uses: actions/checkout@v4
 
-      - name: Setup vcpkg
+      - name: Install dependencies
         run: |
-          git clone https://github.com/microsoft/vcpkg.git ~/vcpkg
-          ~/vcpkg/bootstrap-vcpkg.sh -disableMetrics
+          sudo apt-get update
+          sudo apt-get install -y qt6-base-dev libquazip5-qt6-dev libxlsxwriter-dev
 
       - name: CMake configure
         run: |
           cmake -B build -DCMAKE_BUILD_TYPE=Release \
-            -DCMAKE_TOOLCHAIN_FILE=$HOME/vcpkg/scripts/buildsystems/vcpkg.cmake \
-            -DVCPKG_MANIFEST_MODE=ON
+            -DCMAKE_PREFIX_PATH=/usr/lib/x86_64-linux-gnu
 
       - name: Build
         run: cmake --build build --config Release
