@@ -14,28 +14,40 @@ find_package(Qt6 REQUIRED COMPONENTS Core Widgets Network Gui)
 # Qt XML for xlsx parsing (QuaZip uses it internally)
 find_package(Qt6 QUIET COMPONENTS Xml)
 
-# XlsxWriter - use FetchContent if not found
+# XlsxWriter
 find_package(XlsxWriter QUIET)
 if(NOT XlsxWriter_FOUND)
-    include(FetchContent)
-    FetchContent_Declare(
-        xlsxwriter
-        GIT_REPOSITORY https://github.com/jmcnamara/xlsxwriter.git
-        GIT_TAG main
-    )
-    FetchContent_MakeAvailable(xlsxwriter)
+    find_package(PkgConfig QUIET)
+    if(PkgConfig_FOUND)
+        pkg_check_modules(XLSXWRITER QUIET libxlsxwriter)
+    endif()
+    if(NOT XLSXWRITER_FOUND)
+        include(FetchContent)
+        FetchContent_Declare(
+            xlsxwriter
+            GIT_REPOSITORY https://github.com/jmcnamara/xlsxwriter.git
+            GIT_TAG main
+        )
+        FetchContent_MakeAvailable(xlsxwriter)
+    endif()
 endif()
 
 # QuaZip for xlsx reading
 find_package(QuaZip QUIET)
 if(NOT QuaZip_FOUND)
-    include(FetchContent)
-    FetchContent_Declare(
-        quazip
-        GIT_REPOSITORY https://github.com/stachenov/quazip.git
-        GIT_TAG v1.5
-    )
-    FetchContent_MakeAvailable(quazip)
+    find_package(PkgConfig QUIET)
+    if(PkgConfig_FOUND)
+        pkg_check_modules(QUAZIP QUIET quazip5-qt6)
+    endif()
+    if(NOT QUAZIP_FOUND)
+        include(FetchContent)
+        FetchContent_Declare(
+            quazip
+            GIT_REPOSITORY https://github.com/stachenov/quazip.git
+            GIT_TAG v1.5
+        )
+        FetchContent_MakeAvailable(quazip)
+    endif()
 endif()
 
 # Sources
@@ -83,11 +95,17 @@ target_link_libraries(${PROJECT_NAME} PRIVATE
 # Link XlsxWriter
 if(TARGET xlsxwriter)
     target_link_libraries(${PROJECT_NAME} PRIVATE xlsxwriter)
+elseif(XLSXWRITER_FOUND)
+    target_link_libraries(${PROJECT_NAME} PRIVATE ${XLSXWRITER_LIBRARIES})
+    target_include_directories(${PROJECT_NAME} PRIVATE ${XLSXWRITER_INCLUDE_DIRS})
 endif()
 
 # Link QuaZip
 if(TARGET QuaZip::QuaZip)
     target_link_libraries(${PROJECT_NAME} PRIVATE QuaZip::QuaZip)
+elseif(QUAZIP_FOUND)
+    target_link_libraries(${PROJECT_NAME} PRIVATE ${QUAZIP_LIBRARIES})
+    target_include_directories(${PROJECT_NAME} PRIVATE ${QUAZIP_INCLUDE_DIRS})
 endif()
 
 # Windows-specific libs (raw ICMP)
