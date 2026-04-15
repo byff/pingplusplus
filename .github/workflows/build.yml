@@ -75,18 +75,37 @@ jobs:
         run: |
           windeployqt build/bin/pingplusplus.exe --no-translations --no-compiler-runtime --no-opengl-sw
 
-      - name: Bundle native libs (libxlsxwriter, quazip, mingw runtime)
+      - name: Bundle all native DLLs
         shell: msys2 {0}
         run: |
-          mingwBin="/mingw64/bin"
           deployDir="build/bin"
-          for dll in libxlsxwriter.dll libquazip1-qt6.dll libgcc_s_seh-1.dll libstdc++-6.dll libwinpthread-1.dll; do
-            if [ -f "$mingwBin/$dll" ]; then
-              cp "$mingwBin/$dll" "$deployDir/" && echo "Copied: $dll"
+          mingwBin="/mingw64/bin"
+
+          # windeployqt already ran - now find every DLL the exe actually needs
+          echo "=== Scanning exe dependencies with ldd ==="
+          ldd build/bin/pingplusplus.exe | grep -E 'not found|=> /mingw64' | while read line; do
+            echo "$line"
+          done
+
+          echo "=== Copy all missing DLLs ==="
+          ldd build/bin/pingplusplus.exe | grep 'not found' | awk '{print $1}' | while read dll; do
+            src="$mingwBin/$dll"
+            if [ -f "$src" ]; then
+              cp "$src" "$deployDir/" && echo "Copied: $dll"
+            else
+              echo "MISSING (not in mingw64): $dll"
             fi
           done
-          echo "---DLLs deployed---"
-          ls -la build/bin/lib*.dll 2>/dev/null
+
+          echo "=== Also copy DLLs that windeployqt may have missed (font/text libs) ==="
+          for dll in libfreetype-6.dll libharfbuzz-0.dll libpng16-16.dll libmd4c.dll libbrotlidec.dll libbz2-1.dll libzstd.dll libiconv-2.dll; do
+            if [ -f "$mingwBin/$dll" ]; then
+              cp "$mingwBin/$dll" "$deployDir/" && echo "Extra: $dll"
+            fi
+          done
+
+          echo "=== Final DLL list ==="
+          ls -la build/bin/*.dll build/bin/lib*.dll 2>/dev/null | awk '{print $NF}'
 
       - name: Upload artifact
         uses: actions/upload-artifact@v4
