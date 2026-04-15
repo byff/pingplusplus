@@ -18,7 +18,7 @@ jobs:
       - name: Install dependencies
         run: |
           sudo apt-get update
-          sudo apt-get install -y qt6-base-dev libxlsxwriter-dev libquazip5-dev cmake ninja-build
+          sudo apt-get install -y qt6-base-dev libxlsxwriter-dev libquazip1-qt6-dev qt6-5compat-dev cmake ninja-build
 
       - name: CMake configure
         run: |
@@ -32,7 +32,7 @@ jobs:
         run: |
           mkdir -p debdir/usr/bin debdir/DEBIAN
           cp build/bin/pingplusplus debdir/usr/bin/
-          printf 'Package: pingplusplus\nVersion: 1.0.0\nArchitecture: amd64\nMaintainer: pingplusplus\nDescription: High-performance batch ping tool\nSection: net\nPriority: optional\nDepends: libc6, libgcc-s1, libstdc++6, libxlsxwriter (>= 1.0.0), libqt6core6t64 (>= 6.5), libqt6guit6t64 (>= 6.5), libqt6network6t64 (>= 6.5), libqt6widgets6t64 (>= 6.5), libquazip5-1t64 (>= 1.0)\n' > debdir/DEBIAN/control
+          printf 'Package: pingplusplus\nVersion: 1.0.0\nArchitecture: amd64\nMaintainer: pingplusplus\nDescription: High-performance batch ping tool\nSection: net\nPriority: optional\nDepends: libc6, libgcc-s1, libstdc++6, libxlsxwriter (>= 1.0.0), libqt6core6t64 (>= 6.5), libqt6guit6t64 (>= 6.5), libqt6network6t64 (>= 6.5), libqt6widgets6t64 (>= 6.5), libquazip1-qt6-1t64 (>= 1.4)\n' > debdir/DEBIAN/control
           dpkg-deb --build debdir pingplusplus-linux-x64.deb
 
       - name: Upload artifact
@@ -47,27 +47,26 @@ jobs:
       - name: Checkout code
         uses: actions/checkout@v4
 
-      - name: Setup vcpkg
-        run: |
-          git clone --depth 1 https://github.com/microsoft/vcpkg.git $env:VCPKG_ROOT
-          $env:VCPKG_ROOT/bootstrap-vcpkg.bat -disableMetrics
-        env:
-          VCPKG_ROOT: $env:GITHUB_WORKSPACE/vcpkg
-
-      - name: Install build deps
-        run: |
-          $env:VCPKG_ROOT/vcpkg install qtbase:x64-windows libxlsxwriter quazip
-        env:
-          VCPKG_ROOT: $env:GITHUB_WORKSPACE/vcpkg
+      - name: Setup MSYS2
+        uses: msys2/setup-msys2@v2
+        with:
+          msystem: MINGW64
+          install: >-
+            mingw-w64-x86_64-qt6-base
+            mingw-w64-x86_64-libxlsxwriter
+            mingw-w64-x86_64-quazip-qt6
+            mingw-w64-x86_64-cmake
+            mingw-w64-x86_64-ninja
 
       - name: CMake configure
+        shell: msys2 {0}
         run: |
-          cmake -B build -DCMAKE_BUILD_TYPE=Release `
-            -DCMAKE_TOOLCHAIN_FILE="$env:VCPKG_ROOT/scripts/buildsystems/vcpkg.cmake" `
-            -DVCPKG_TARGET_TRIPLET=x64-windows
+          cmake -B build -G Ninja -DCMAKE_BUILD_TYPE=Release
 
       - name: Build
-        run: cmake --build build --config Release
+        shell: msys2 {0}
+        run: |
+          cmake --build build --config Release
 
       - name: Upload artifact
         uses: actions/upload-artifact@v4
