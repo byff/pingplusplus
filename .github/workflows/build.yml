@@ -20,11 +20,11 @@ jobs:
           git clone https://github.com/microsoft/vcpkg.git C:/vcpkg
           C:/vcpkg/bootstrap-vcpkg.bat
 
-      - name: Install dependencies
-        run: C:/vcpkg/vcpkg install qtbase:x64-windows libxlsxwriter quazip
-
       - name: CMake configure
-        run: cmake -B build -DCMAKE_BUILD_TYPE=Release -DCMAKE_TOOLCHAIN_FILE=C:/vcpkg/scripts/buildsystems/vcpkg.cmake
+        run: |
+          cmake -B build -DCMAKE_BUILD_TYPE=Release ^
+            -DCMAKE_TOOLCHAIN_FILE=C:/vcpkg/scripts/buildsystems/vcpkg.cmake ^
+            -DVCPKG_MANIFEST_MODE=ON
 
       - name: Build
         run: cmake --build build --config Release
@@ -46,14 +46,11 @@ jobs:
           git clone https://github.com/microsoft/vcpkg.git ~/vcpkg
           ~/vcpkg/bootstrap-vcpkg.sh -disableMetrics
 
-      - name: Install dependencies
-        run: |
-          ~/vcpkg/vcpkg install qtbase:x64-linux libxlsxwriter quazip
-
       - name: CMake configure
         run: |
           cmake -B build -DCMAKE_BUILD_TYPE=Release \
-            -DCMAKE_TOOLCHAIN_FILE=$HOME/vcpkg/scripts/buildsystems/vcpkg.cmake
+            -DCMAKE_TOOLCHAIN_FILE=$HOME/vcpkg/scripts/buildsystems/vcpkg.cmake \
+            -DVCPKG_MANIFEST_MODE=ON
 
       - name: Build
         run: cmake --build build --config Release

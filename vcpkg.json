@@ -4,10 +4,10 @@
   "version": "1.0.0",
   "dependencies": [
     {
-      "name": "qt6",
+      "name": "qtbase",
       "features": [ "core", "widgets", "network", "gui" ]
     },
-    "xlsxwriter",
+    "libxlsxwriter",
     "quazip"
   ]
 }
